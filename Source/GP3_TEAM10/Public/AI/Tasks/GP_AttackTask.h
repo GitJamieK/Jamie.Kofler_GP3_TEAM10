@@ -33,7 +33,10 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
 	FBlackboardKeySelector TargetActorKey;
 
-private:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
+	FBlackboardKeySelector IsCloseEnoughKey;
 
-	void OnAttackFinished();
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI")
+	FBlackboardKeySelector IsAttackingKey;
+
 };

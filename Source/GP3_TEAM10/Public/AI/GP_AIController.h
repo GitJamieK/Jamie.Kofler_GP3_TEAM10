@@ -17,6 +17,14 @@ public:
 
 	AGP_AIController();
 
+	virtual ETeamAttitude::Type GetTeamAttitudeTowards(const AActor& Other) const override;
+
+	UFUNCTION(BlueprintCallable, Category = "Generic Team Id")
+	virtual void SetGenericTeamId(const FGenericTeamId& NewTeamID) override;
+
+	UFUNCTION(BlueprintCallable, Category = "Generic Team Id")
+	virtual FGenericTeamId GetGenericTeamId() const override;
+
 protected:
 
 	virtual void OnPossess(APawn* InPawn) override;

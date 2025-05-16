@@ -35,10 +35,9 @@ void UGP_CheckDistanceService::TickNode(UBehaviorTreeComponent& OwnerComp, uint8
 
 	const float Distance = FVector::Dist(Target->GetActorLocation(), AIPawn->GetActorLocation());
 
-	UE_LOG(GP_CheckDistanceServiceLog, Display, TEXT("Distance between Target and AIEnenmy = %f"), Distance);
 	bool IsCloseEnough = UKismetMathLibrary::InRange_FloatFloat(Distance, 0.f, RequiredDistance + AcceptableRadius, false, true);
 
 	Blackboard->SetValueAsBool(IsCloseEnoughKey.SelectedKeyName, IsCloseEnough);
 
-	UE_LOG(GP_CheckDistanceServiceLog, Display, TEXT("Distance between Target and AIEnenmy = %f, CloseEnough = %s"), Distance, IsCloseEnough ? TEXT("true") : TEXT("false"));
+	//UE_LOG(GP_CheckDistanceServiceLog, Display, TEXT("Distance between Target and AIEnenmy = %f, CloseEnough = %s"), Distance, IsCloseEnough ? TEXT("true") : TEXT("false"));
 }

@@ -25,11 +25,14 @@ EBTNodeResult::Type UGP_AttackTask::ExecuteTask(UBehaviorTreeComponent& OwnerCom
 		return EBTNodeResult::Failed;
 	}
 
-	const auto HasTarget = Blackboard && Blackboard->GetValueAsObject(TargetActorKey.SelectedKeyName);
+	const auto HasTarget = Blackboard && Blackboard->GetValueAsObject(TargetActorKey.SelectedKeyName) && Blackboard->GetValueAsBool(IsCloseEnoughKey.SelectedKeyName);
 	if (HasTarget)
 	{
 		UE_LOG(GP_AttackTaskLog, Display, TEXT("HasTarget"));
+
+		Blackboard->SetValueAsBool(IsAttackingKey.SelectedKeyName, true);
 		Owner->Attack();
+		UE_LOG(GP_AttackTaskLog, Display, TEXT("Attack: Controller = %s, IsAttackingKey = %s"), *Controller->GetName(), Blackboard->GetValueAsBool(IsAttackingKey.SelectedKeyName) ? TEXT("TRUE") : TEXT("FALSE"));
 
 		FAttackTaskMemory* MyMemory = reinterpret_cast<FAttackTaskMemory*>(NodeMemory);
 		MyMemory->OwnerComp = &OwnerComp;
@@ -38,10 +41,13 @@ EBTNodeResult::Type UGP_AttackTask::ExecuteTask(UBehaviorTreeComponent& OwnerCom
 		Owner->OnFinishedAttack.AddLambda(
 			[this, MyMemory]()
 			{
-				FinishLatentTask(
-					*MyMemory->OwnerComp,
-					EBTNodeResult::Succeeded
-				);
+				const auto MemoryBlackboard = MyMemory->OwnerComp->GetBlackboardComponent();
+				AAIController* Controller = MyMemory->OwnerComp->GetAIOwner();
+				MemoryBlackboard->SetValueAsBool(IsAttackingKey.SelectedKeyName, false);
+
+				UE_LOG(GP_AttackTaskLog, Display, TEXT("Finish Attack: Controller = %s, IsAttackingKey = %s"), *Controller->GetName(), MemoryBlackboard->GetValueAsBool(IsAttackingKey.SelectedKeyName) ? TEXT("TRUE") : TEXT("FALSE"));
+
+				FinishLatentTask(*MyMemory->OwnerComp, EBTNodeResult::Succeeded);
 			}
 		);
 	}
@@ -52,9 +58,4 @@ EBTNodeResult::Type UGP_AttackTask::ExecuteTask(UBehaviorTreeComponent& OwnerCom
 	}
 
 	return EBTNodeResult::InProgress;
-}
-
-void UGP_AttackTask::OnAttackFinished()
-{
-
 }

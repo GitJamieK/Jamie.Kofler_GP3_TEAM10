@@ -12,6 +12,43 @@ AGP_AIController::AGP_AIController()
 {
 	AIPerceptionComponent = CreateDefaultSubobject<UGP_AIPerceptionComponent>("AIPerceptionComponent");
 	SetPerceptionComponent(*AIPerceptionComponent);
+
+	SetGenericTeamId(FGenericTeamId(0));
+}
+
+ETeamAttitude::Type AGP_AIController::GetTeamAttitudeTowards(const AActor& Other) const
+{
+	ETeamAttitude::Type Attitude;
+	const IGenericTeamAgentInterface* OtherTeamAgent = Cast<const IGenericTeamAgentInterface>(&Other);
+	if (OtherTeamAgent)
+	{
+		Attitude = FGenericTeamId::GetAttitude(GetGenericTeamId(), OtherTeamAgent->GetGenericTeamId());
+	}
+	else
+	{
+		Attitude = ETeamAttitude::Neutral;
+	}
+	return Attitude;
+}
+
+void AGP_AIController::SetGenericTeamId(const FGenericTeamId& NewTeamID)
+{
+	IGenericTeamAgentInterface* ControlledAgent = Cast<IGenericTeamAgentInterface>(GetPawn());
+	if (ControlledAgent)
+	{
+		ControlledAgent->SetGenericTeamId(NewTeamID);
+	}
+}
+
+FGenericTeamId AGP_AIController::GetGenericTeamId() const
+{
+	const IGenericTeamAgentInterface* ControlledAgent = Cast<const IGenericTeamAgentInterface>(GetPawn());
+	if (ControlledAgent)
+	{
+		return ControlledAgent->GetGenericTeamId();
+	}
+
+	return FGenericTeamId();
 }
 
 void AGP_AIController::OnPossess(APawn* InPawn)

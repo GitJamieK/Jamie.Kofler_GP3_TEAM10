@@ -8,6 +8,8 @@
 
 class UBehaviorTree;
 class UAnimMontage;
+class UBoxComponent;
+class UGP_HealthComponent;
 
 DECLARE_MULTICAST_DELEGATE(FOnFinishedAttackSignature);
 
@@ -32,6 +34,21 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "AI|Animations")
 	UAnimMontage* AttackAnimMontage;
 
+	UPROPERTY(EditDefaultsOnly, Category = "AI|Animations")
+	UAnimMontage* DeathAnimMontage;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "AI|Components")
+	UBoxComponent* RightHandCollision;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "AI|Components")
+	UBoxComponent* LeftHandCollision;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "AI|Components")
+	UGP_HealthComponent* HealthComponent;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "AI|Attack", meta = (ClampMin = "0", ClampMax = "1000.0"))
+	float DamageAmount;
+
 public:
 
 	virtual void Tick(float DeltaTime) override;
@@ -42,8 +59,15 @@ public:
 	void Attack();
 
 private:
+	bool bIsDamageDone = false;
 
 	FTimerHandle AttackTimerHandle;
 
 	void StopAttack();
+
+	UFUNCTION()
+	void OnOverlapHit(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+
+	UFUNCTION()
+	void HandleDeath();
 };

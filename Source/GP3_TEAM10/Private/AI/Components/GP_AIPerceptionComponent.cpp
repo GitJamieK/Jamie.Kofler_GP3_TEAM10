@@ -4,6 +4,7 @@
 #include "AI/Components/GP_AIPerceptionComponent.h"
 #include "Perception/AISense_Sight.h"
 #include "AI/GP_AIController.h"
+#include "Components/GP_HealthComponent.h"
 
 AActor* UGP_AIPerceptionComponent::GetTargetEnemy() const
 {
@@ -23,11 +24,11 @@ AActor* UGP_AIPerceptionComponent::GetTargetEnemy() const
 
 	for (const auto PercieveActor : PercieveActors)
 	{
-		if (!PercieveActor) return nullptr; //continue?
+		if (!PercieveActor) continue; //continue?  return nullptr
 
-		//const auto BehaviorType = Controller->GetTeamAttitudeTowards(*PercieveActor);
-		//const auto HealthComponent = PercieveActor->FindComponentByClass<>();
-		//if (BehaviorType == ETeamAttitude::Hostile && HealthComponent && !HealthComponent->IsDead()) //TODO: check if enemies or not and dead actor or not
+		const auto BehaviorType = Controller->GetTeamAttitudeTowards(*PercieveActor);
+		const auto HealthComponent = PercieveActor->FindComponentByClass<UGP_HealthComponent>();
+		if (BehaviorType == ETeamAttitude::Hostile && HealthComponent && !HealthComponent->IsDead())
 		{
 			TargetPawn = PercieveActor;
 		}
