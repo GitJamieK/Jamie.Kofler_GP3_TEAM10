@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<objects serializationModel="Studio.02.02.00">
+	<object class="AudioFile" id="{f6408542-82af-4b32-9283-6891e1da76ce}">
+		<property name="assetPath">
+			<value>crackling-fireplace-nature-sounds-8012.mp3</value>
+		</property>
+		<property name="isStreaming">
+			<value>true</value>
+		</property>
+		<property name="frequencyInKHz">
+			<value>44.0999985</value>
+		</property>
+		<property name="channelCount">
+			<value>2</value>
+		</property>
+		<property name="length">
+			<value>58.017959183673469</value>
+		</property>
+		<relationship name="masterAssetFolder">
+			<destination>{f3c491a6-a2e5-4378-bd1f-34d879974750}</destination>
+		</relationship>
+	</object>
+</objects>

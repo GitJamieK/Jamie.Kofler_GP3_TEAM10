@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<objects serializationModel="Studio.02.02.00">
+	<object class="AudioFile" id="{0231138c-d9cc-4af4-ac17-98db8597dcc5}">
+		<property name="assetPath">
+			<value>falling-book-29181.mp3</value>
+		</property>
+		<property name="isStreaming">
+			<value>true</value>
+		</property>
+		<property name="frequencyInKHz">
+			<value>24</value>
+		</property>
+		<property name="channelCount">
+			<value>2</value>
+		</property>
+		<property name="length">
+			<value>43.991999999999997</value>
+		</property>
+		<relationship name="masterAssetFolder">
+			<destination>{f3c491a6-a2e5-4378-bd1f-34d879974750}</destination>
+		</relationship>
+	</object>
+</objects>

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<objects serializationModel="Studio.02.02.00">
+	<object class="AudioFile" id="{a95876b9-4d5f-4867-aa90-1f277b6094ed}">
+		<property name="assetPath">
+			<value>Footsteps_Wood_Run_08.wav</value>
+		</property>
+		<property name="frequencyInKHz">
+			<value>48</value>
+		</property>
+		<property name="channelCount">
+			<value>1</value>
+		</property>
+		<property name="length">
+			<value>0.34185416666666668</value>
+		</property>
+		<relationship name="masterAssetFolder">
+			<destination>{f3c491a6-a2e5-4378-bd1f-34d879974750}</destination>
+		</relationship>
+	</object>
+</objects>
