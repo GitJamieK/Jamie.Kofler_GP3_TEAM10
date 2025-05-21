@@ -30,9 +30,41 @@ void AGP_GameModeBase::HandleQTEState()
 	SetGameplayState(EGameplayState::QTEState);
 }
 
+void AGP_GameModeBase::HandlePauseState(APlayerController* PC)
+{
+	SetPause(PC);
+}
+
+void AGP_GameModeBase::HandleUnPauseState()
+{
+	ClearPause();
+}
+
 void AGP_GameModeBase::StartPlay()
 {
 	Super::StartPlay();
 
 	SetGameplayState(EGameplayState::PlayState);
+}
+
+bool AGP_GameModeBase::SetPause(APlayerController* PC, FCanUnpause CanUnpauseDelegate)
+{
+	const auto PauseSet = Super::SetPause(PC, CanUnpauseDelegate);
+	if (PauseSet)
+	{
+		SetGameplayState(EGameplayState::PauseState);
+	}
+
+	return PauseSet;
+}
+
+bool AGP_GameModeBase::ClearPause()
+{
+	const auto PauseCleared = Super::ClearPause();
+	if (PauseCleared)
+	{
+		SetGameplayState(EGameplayState::PlayState);
+	}
+
+	return PauseCleared;
 }

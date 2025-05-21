@@ -37,7 +37,17 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void HandleQTEState();
 
+	UFUNCTION(BlueprintCallable)
+	void HandlePauseState(APlayerController* PC);
+
+	UFUNCTION(BlueprintCallable)
+	void HandleUnPauseState();
+
 	virtual void StartPlay() override;
+
+	virtual bool SetPause(APlayerController* PC, FCanUnpause CanUnpauseDelegate = FCanUnpause()) override;
+
+	virtual bool ClearPause() override;
 
 private:
 
