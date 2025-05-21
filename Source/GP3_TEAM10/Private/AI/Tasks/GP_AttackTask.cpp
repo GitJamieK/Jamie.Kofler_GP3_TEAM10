@@ -43,6 +43,10 @@ EBTNodeResult::Type UGP_AttackTask::ExecuteTask(UBehaviorTreeComponent& OwnerCom
 			{
 				const auto MemoryBlackboard = MyMemory->OwnerComp->GetBlackboardComponent();
 				AAIController* Controller = MyMemory->OwnerComp->GetAIOwner();
+
+				AGP_AICharacter* Owner = Cast<AGP_AICharacter>(Controller->GetPawn());
+				Owner->SetCurrentAnimState(EAIAnimState::Idle);
+
 				MemoryBlackboard->SetValueAsBool(IsAttackingKey.SelectedKeyName, false);
 
 				UE_LOG(GP_AttackTaskLog, Display, TEXT("Finish Attack: Controller = %s, IsAttackingKey = %s"), *Controller->GetName(), MemoryBlackboard->GetValueAsBool(IsAttackingKey.SelectedKeyName) ? TEXT("TRUE") : TEXT("FALSE"));

@@ -46,3 +46,13 @@
 #################################
 # Miscellaneous Generated Files #
 #################################
+
+/Plugins/FMODStudio/Docs
+/Plugins/FMODStudio/Intermediate
+/Plugins/FMODStudio/Resources
+
+/Content/FMOD/Banks
+/Content/FMOD/Buses
+/Content/FMOD/Events
+/Content/FMOD/PrivateIntegrationData
+/Content/FMOD/Snapshots

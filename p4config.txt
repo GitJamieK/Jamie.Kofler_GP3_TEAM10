@@ -1,4 +1,4 @@
 P4PORT=fgsrv:1666
-P4USER=Jamie.Kofler
-P4CLIENT=Jamie.Kofler_GP3_TEAM10
+P4USER=Brian-Lucas.Morar
+P4CLIENT=Brian-Lucas.Morar_GP3
 P4IGNORE=.p4ignore.txt

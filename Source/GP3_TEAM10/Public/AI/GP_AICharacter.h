@@ -12,6 +12,18 @@ class UBoxComponent;
 class UGP_HealthComponent;
 
 DECLARE_MULTICAST_DELEGATE(FOnFinishedAttackSignature);
+DECLARE_MULTICAST_DELEGATE(FOnFinishedAwakeSignature);
+
+UENUM(BlueprintType)
+enum class EAIAnimState : uint8
+{
+	Sleep = 0,
+	StandUp,
+	Idle,
+	Walk,
+	Attack,
+	Death
+};
 
 UCLASS()
 class GP3_TEAM10_API AGP_AICharacter : public ACharacter
@@ -21,11 +33,6 @@ class GP3_TEAM10_API AGP_AICharacter : public ACharacter
 public:
 
 	AGP_AICharacter();
-
-	FOnFinishedAttackSignature OnFinishedAttack;
-
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "AI|BehaviorTree")
-	TObjectPtr<UBehaviorTree> BehaviorTree;
 
 protected:
 
@@ -51,6 +58,24 @@ protected:
 
 public:
 
+	FOnFinishedAttackSignature OnFinishedAttack;
+	FOnFinishedAwakeSignature OnFinishedAwake;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "AI|BehaviorTree")
+	TObjectPtr<UBehaviorTree> BehaviorTree;
+
+	UFUNCTION(BlueprintCallable, Category = "AI|Behavior")
+	bool IsAwakening() const { return bIsAwakening; };
+
+	UFUNCTION(BlueprintCallable, Category = "AI|Behavior")
+	void SetIsAwakening(bool IsAwakening) { bIsAwakening = IsAwakening; };
+
+	UFUNCTION(BlueprintCallable, Category = "AI|Behavior")
+	EAIAnimState GetCurrentAnimState() const { return CurrentAnimState; };
+
+	UFUNCTION(BlueprintCallable, Category = "AI|Behavior")
+	void SetCurrentAnimState(EAIAnimState NextAnimState);
+
 	virtual void Tick(float DeltaTime) override;
 
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
@@ -58,12 +83,20 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "AI|Attack")
 	void Attack();
 
+	void StopAttack();
+	void FinishAwake();
+
 private:
+
 	bool bIsDamageDone = false;
 
 	FTimerHandle AttackTimerHandle;
 
-	void StopAttack();
+	UPROPERTY(EditDefaultsOnly, Category = "AI|Behavior")
+	bool bIsAwakening = false;
+
+	UPROPERTY(EditDefaultsOnly, Category = "AI|Behavior")
+	EAIAnimState CurrentAnimState = EAIAnimState::Sleep;
 
 	UFUNCTION()
 	void OnOverlapHit(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);

@@ -48,6 +48,19 @@ void AGP_AICharacter::BeginPlay()
 	HealthComponent->OnDeath.AddDynamic(this, &AGP_AICharacter::HandleDeath);
 }
 
+void AGP_AICharacter::SetCurrentAnimState(EAIAnimState NextAnimState)
+{
+	if (CurrentAnimState == NextAnimState) return;
+
+	EAIAnimState PreviousAnimState = CurrentAnimState;
+	CurrentAnimState = NextAnimState;
+
+	UE_LOG(GP_AICharacterLog, Display, TEXT("EAIAnimState changed from %s to %s"),
+		*StaticEnum<EAIAnimState>()->GetNameStringByValue((int64)PreviousAnimState),
+		*StaticEnum<EAIAnimState>()->GetNameStringByValue((int64)CurrentAnimState)
+	);
+}
+
 void AGP_AICharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
@@ -63,16 +76,28 @@ void AGP_AICharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 void AGP_AICharacter::Attack()
 {
 	UE_LOG(GP_AICharacterLog, Display, TEXT("Attack"));
+
 	PlayAnimMontage(AttackAnimMontage);
-	GetWorld()->GetTimerManager().SetTimer(AttackTimerHandle, this, &AGP_AICharacter::StopAttack, AttackAnimMontage->CalculateSequenceLength(), false);
+	SetCurrentAnimState(EAIAnimState::Attack);
+
+	//GetWorld()->GetTimerManager().SetTimer(AttackTimerHandle, this, &AGP_AICharacter::StopAttack, AttackAnimMontage->CalculateSequenceLength(), false);
 }
 
 void AGP_AICharacter::StopAttack()
 {
 	UE_LOG(GP_AICharacterLog, Display, TEXT("StopAttack"));
+
 	OnFinishedAttack.Broadcast();
-	GetWorld()->GetTimerManager().ClearTimer(AttackTimerHandle);
+
+	//GetWorld()->GetTimerManager().ClearTimer(AttackTimerHandle);
 	bIsDamageDone = false;
+}
+
+void AGP_AICharacter::FinishAwake()
+{
+	//bIsAwakening = false;
+	OnFinishedAwake.Broadcast();
+	//SetCurrentAnimState(EAIAnimState::Idle);
 }
 
 void AGP_AICharacter::OnOverlapHit(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
@@ -113,10 +138,13 @@ void AGP_AICharacter::HandleDeath()
 		UE_LOG(GP_AICharacterLog, Display, TEXT("AIController && AIController->BrainComponent"));
 		StopAttack();
 		AIController->BrainComponent->Cleanup();
+
 		PlayAnimMontage(DeathAnimMontage);
+		SetCurrentAnimState(EAIAnimState::Death);
+
 		GetCharacterMovement()->DisableMovement();
 		GetCapsuleComponent()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Ignore);
-		SetLifeSpan(DeathAnimMontage->CalculateSequenceLength() + 5.5f);
+		SetLifeSpan(DeathAnimMontage->CalculateSequenceLength() + 5.5f); // change it
 	}
 	else
 	{
