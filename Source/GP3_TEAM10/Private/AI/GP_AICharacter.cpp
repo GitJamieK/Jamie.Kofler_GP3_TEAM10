@@ -38,6 +38,8 @@ AGP_AICharacter::AGP_AICharacter()
 	LeftHandCollision->IgnoreActorWhenMoving(GetOwner(), true);
 
 	HealthComponent = CreateDefaultSubobject<UGP_HealthComponent>("HealthComponent");
+
+	SetCurrentAnimState(StartAnimState);
 }
 
 void AGP_AICharacter::BeginPlay()
@@ -48,6 +50,28 @@ void AGP_AICharacter::BeginPlay()
 	HealthComponent->OnDeath.AddDynamic(this, &AGP_AICharacter::HandleDeath);
 }
 
+void AGP_AICharacter::StartQTE()
+{
+	bQTEActive = true;
+	QTEProgress = 0.0f;
+
+	GetWorldTimerManager().SetTimer(QTEFillTimerHandle, this, &AGP_AICharacter::FailQTE, QTEFillTime, false);
+}
+
+void AGP_AICharacter::OnQTEButtonPressed()
+{
+	if (!bQTEActive) return;
+
+	QTEProgress += QTEDrainPerPress;
+
+	if (QTEProgress >= QTEThreshold)
+	{
+		bQTEActive = false;
+		GetWorldTimerManager().ClearTimer(QTEFillTimerHandle);
+		OnQTEFinished.Broadcast(true);
+	}
+}
+
 void AGP_AICharacter::SetCurrentAnimState(EAIAnimState NextAnimState)
 {
 	if (CurrentAnimState == NextAnimState) return;
@@ -55,9 +79,9 @@ void AGP_AICharacter::SetCurrentAnimState(EAIAnimState NextAnimState)
 	EAIAnimState PreviousAnimState = CurrentAnimState;
 	CurrentAnimState = NextAnimState;
 
-	UE_LOG(GP_AICharacterLog, Display, TEXT("EAIAnimState changed from %s to %s"),
+	UE_LOG(GP_AICharacterLog, Display, TEXT("EAIAnimState changed from %s to %s : %s"),
 		*StaticEnum<EAIAnimState>()->GetNameStringByValue((int64)PreviousAnimState),
-		*StaticEnum<EAIAnimState>()->GetNameStringByValue((int64)CurrentAnimState)
+		*StaticEnum<EAIAnimState>()->GetNameStringByValue((int64)CurrentAnimState), *GetName()
 	);
 }
 
@@ -65,6 +89,14 @@ void AGP_AICharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
+	/*UAnimInstance* AnimationInstance = GetMesh()->GetAnimInstance();
+
+	if (CurrentAnimState == EAIAnimState::Walk && AnimationInstance)
+	{
+		SpeedMultiplier = AnimationInstance->GetCurveValue(FName("SpeedMultiplier"));
+		GetCharacterMovement()->MaxWalkSpeed = BaseSpeed * SpeedMultiplier;
+		UE_LOG(GP_AICharacterLog, Display, TEXT("Change speed: %f"), BaseSpeed * SpeedMultiplier);
+	}*/
 }
 
 void AGP_AICharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -77,7 +109,10 @@ void AGP_AICharacter::Attack()
 {
 	UE_LOG(GP_AICharacterLog, Display, TEXT("Attack"));
 
-	PlayAnimMontage(AttackAnimMontage);
+	if (AttackAnimMontage)
+	{
+		PlayAnimMontage(AttackAnimMontage);
+	}
 	SetCurrentAnimState(EAIAnimState::Attack);
 
 	//GetWorld()->GetTimerManager().SetTimer(AttackTimerHandle, this, &AGP_AICharacter::StopAttack, AttackAnimMontage->CalculateSequenceLength(), false);
@@ -100,9 +135,18 @@ void AGP_AICharacter::FinishAwake()
 	//SetCurrentAnimState(EAIAnimState::Idle);
 }
 
+void AGP_AICharacter::FailQTE()
+{
+	if (!bQTEActive) return;
+
+	bQTEActive = false;
+	OnQTEFinished.Broadcast(false);
+}
+
 void AGP_AICharacter::OnOverlapHit(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	//Is it attack? broadcact event ?
+	if (CurrentAnimState != EAIAnimState::Attack) return;
 
 	const auto HitActor = SweepResult.GetActor();
 	if (!HitActor)
@@ -139,12 +183,15 @@ void AGP_AICharacter::HandleDeath()
 		StopAttack();
 		AIController->BrainComponent->Cleanup();
 
-		PlayAnimMontage(DeathAnimMontage);
+		if (DeathAnimMontage)
+		{
+			PlayAnimMontage(DeathAnimMontage);
+			SetLifeSpan(DeathAnimMontage->CalculateSequenceLength() + 5.5f); // change it
+		}
 		SetCurrentAnimState(EAIAnimState::Death);
 
 		GetCharacterMovement()->DisableMovement();
 		GetCapsuleComponent()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Ignore);
-		SetLifeSpan(DeathAnimMontage->CalculateSequenceLength() + 5.5f); // change it
 	}
 	else
 	{

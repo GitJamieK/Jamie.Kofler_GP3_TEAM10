@@ -25,6 +25,11 @@ void AGP_GameModeBase::HandleDeathState()
 	SetGameplayState(EGameplayState::DeathState);
 }
 
+void AGP_GameModeBase::HandleQTEState()
+{
+	SetGameplayState(EGameplayState::QTEState);
+}
+
 void AGP_GameModeBase::StartPlay()
 {
 	Super::StartPlay();

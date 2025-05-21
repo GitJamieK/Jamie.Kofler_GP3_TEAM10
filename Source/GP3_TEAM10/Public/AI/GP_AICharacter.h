@@ -10,14 +10,17 @@ class UBehaviorTree;
 class UAnimMontage;
 class UBoxComponent;
 class UGP_HealthComponent;
+class AGP_PatrolRoute;
 
 DECLARE_MULTICAST_DELEGATE(FOnFinishedAttackSignature);
 DECLARE_MULTICAST_DELEGATE(FOnFinishedAwakeSignature);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnQTEFinishedSignature, bool, bSuccess);
 
 UENUM(BlueprintType)
 enum class EAIAnimState : uint8
 {
-	Sleep = 0,
+	None,
+	Sleep,
 	StandUp,
 	Idle,
 	Walk,
@@ -61,8 +64,23 @@ public:
 	FOnFinishedAttackSignature OnFinishedAttack;
 	FOnFinishedAwakeSignature OnFinishedAwake;
 
+	UPROPERTY(BlueprintAssignable)
+	FOnQTEFinishedSignature OnQTEFinished;
+
+	UFUNCTION(BlueprintCallable, Category = "AI|Behavior")
+	void StartQTE();
+
+	UFUNCTION(BlueprintCallable, Category = "AI|Behavior")
+	void OnQTEButtonPressed();
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "AI|BehaviorTree")
 	TObjectPtr<UBehaviorTree> BehaviorTree;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Behavior")
+	TObjectPtr<AGP_PatrolRoute> PatrolRoute;
+
+	UPROPERTY(EditDefaultsOnly, Category = "AI|Behavior")
+	EAIAnimState StartAnimState = EAIAnimState::Sleep;
 
 	UFUNCTION(BlueprintCallable, Category = "AI|Behavior")
 	bool IsAwakening() const { return bIsAwakening; };
@@ -88,6 +106,16 @@ public:
 
 private:
 
+	FTimerHandle QTEFillTimerHandle;
+
+	float QTEProgress = 0.0f;
+	float QTEFillTime = 2.0f;
+	float QTEDrainPerPress = 0.2f;
+	float QTEThreshold = 1.0f;
+	bool bQTEActive = false;
+
+	void FailQTE();
+
 	bool bIsDamageDone = false;
 
 	FTimerHandle AttackTimerHandle;
@@ -95,8 +123,7 @@ private:
 	UPROPERTY(EditDefaultsOnly, Category = "AI|Behavior")
 	bool bIsAwakening = false;
 
-	UPROPERTY(EditDefaultsOnly, Category = "AI|Behavior")
-	EAIAnimState CurrentAnimState = EAIAnimState::Sleep;
+	EAIAnimState CurrentAnimState = EAIAnimState::None;
 
 	UFUNCTION()
 	void OnOverlapHit(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);

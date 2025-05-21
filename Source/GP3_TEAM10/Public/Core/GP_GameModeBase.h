@@ -11,6 +11,8 @@ enum class EGameplayState : uint8
 {
 	InitState,
 	PlayState,
+	QTEState,
+	PauseState,
 	DeathState
 };
 
@@ -31,6 +33,9 @@ public:
 
 	UFUNCTION(BlueprintCallable)
 	void HandleDeathState();
+
+	UFUNCTION(BlueprintCallable)
+	void HandleQTEState();
 
 	virtual void StartPlay() override;
 
