@@ -47,11 +47,11 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "AI|Animations")
 	UAnimMontage* DeathAnimMontage;
 
-	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "AI|Components")
+	/*UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "AI|Components")
 	UBoxComponent* RightHandCollision;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "AI|Components")
-	UBoxComponent* LeftHandCollision;
+	UBoxComponent* LeftHandCollision;*/
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "AI|Components")
 	UGP_HealthComponent* HealthComponent;
@@ -92,6 +92,15 @@ public:
 	void SetIsAwakening(bool IsAwakening) { bIsAwakening = IsAwakening; };
 
 	UFUNCTION(BlueprintCallable, Category = "AI|Behavior")
+	bool IsDamageDone() const { return bIsDamageDone; };
+
+	UFUNCTION(BlueprintCallable, Category = "AI|Behavior")
+	float GetDamage() const { return DamageAmount; };
+
+	UFUNCTION(BlueprintCallable, Category = "AI|Behavior")
+	void SetIsDamageDone(bool IsDamageDone) { bIsDamageDone = IsDamageDone; };
+
+	UFUNCTION(BlueprintCallable, Category = "AI|Behavior")
 	EAIAnimState GetCurrentAnimState() const { return CurrentAnimState; };
 
 	UFUNCTION(BlueprintCallable, Category = "AI|Behavior")
@@ -125,8 +134,8 @@ private:
 
 	EAIAnimState CurrentAnimState = EAIAnimState::None;
 
-	UFUNCTION()
-	void OnOverlapHit(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
+	/*UFUNCTION()
+	void OnOverlapHit(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);*/
 
 	UFUNCTION()
 	void HandleDeath();

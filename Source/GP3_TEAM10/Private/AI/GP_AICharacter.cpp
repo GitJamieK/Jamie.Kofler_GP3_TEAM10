@@ -26,7 +26,7 @@ AGP_AICharacter::AGP_AICharacter()
 		GetCharacterMovement()->bUseControllerDesiredRotation = true;
 	}
 
-	RightHandCollision = CreateDefaultSubobject<UBoxComponent>("RightHandCollision");
+	/*RightHandCollision = CreateDefaultSubobject<UBoxComponent>("RightHandCollision");
 	FAttachmentTransformRules AttachmentRules(EAttachmentRule::KeepRelative, false);
 	RightHandCollision->AttachToComponent(GetMesh(), AttachmentRules, "RightHandCollisionSocket");
 	RightHandCollision->OnComponentBeginOverlap.AddDynamic(this, &AGP_AICharacter::OnOverlapHit);
@@ -35,7 +35,7 @@ AGP_AICharacter::AGP_AICharacter()
 	LeftHandCollision = CreateDefaultSubobject<UBoxComponent>("LefttHandCollision");
 	LeftHandCollision->AttachToComponent(GetMesh(), AttachmentRules, "LeftHandCollisionSocket");
 	LeftHandCollision->OnComponentBeginOverlap.AddDynamic(this, &AGP_AICharacter::OnOverlapHit);
-	LeftHandCollision->IgnoreActorWhenMoving(GetOwner(), true);
+	LeftHandCollision->IgnoreActorWhenMoving(GetOwner(), true);*/
 
 	HealthComponent = CreateDefaultSubobject<UGP_HealthComponent>("HealthComponent");
 
@@ -96,12 +96,12 @@ void AGP_AICharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 void AGP_AICharacter::Attack()
 {
 	UE_LOG(GP_AICharacterLog, Display, TEXT("Attack"));
+	SetCurrentAnimState(EAIAnimState::Attack);
 
 	if (AttackAnimMontage)
 	{
 		PlayAnimMontage(AttackAnimMontage);
 	}
-	SetCurrentAnimState(EAIAnimState::Attack);
 }
 
 void AGP_AICharacter::StopAttack()
@@ -128,36 +128,36 @@ void AGP_AICharacter::FinishAwake()
 //	OnQTEFinished.Broadcast(false);
 //}
 
-void AGP_AICharacter::OnOverlapHit(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
-{
-	//Is it attack? broadcact event ?
-	if (CurrentAnimState != EAIAnimState::Attack) return;
-	if (bQTEActive) return;
-
-	const auto HitActor = SweepResult.GetActor();
-	if (!HitActor)
-	{
-		UE_LOG(GP_AICharacterLog, Display, TEXT("OnOverlapHit:: No HitActor"));
-		return;
-	}
-
-	if (HitActor == this) return;
-	
-	const auto AIController = Cast<AGP_AIController>(Controller);
-	const auto BehaviorType = AIController->GetTeamAttitudeTowards(*HitActor);
-	if (BehaviorType == ETeamAttitude::Neutral)
-	{
-		UE_LOG(GP_AICharacterLog, Display, TEXT("AIController = %s, BehaviorType == ETeamAttitude::Neutral = %s"), *AIController->GetName(), BehaviorType == ETeamAttitude::Neutral ? TEXT("TRUE") : TEXT("FALSE"));
-		return;
-	}
-
-	if (!bIsDamageDone && BehaviorType == ETeamAttitude::Hostile)
-	{
-		UE_LOG(GP_AICharacterLog, Display, TEXT("HitActor = %s, BehaviorType == ETeamAttitude::Hostile = %s"), *HitActor->GetName(), BehaviorType == ETeamAttitude::Hostile ? TEXT("TRUE") : TEXT("FALSE"));
-		HitActor->TakeDamage(DamageAmount, FDamageEvent{}, Controller, this);
-		bIsDamageDone = true;
-	}
-}
+//void AGP_AICharacter::OnOverlapHit(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
+//{
+//	//Is it attack? broadcact event ?
+//	if (CurrentAnimState != EAIAnimState::Attack) return;
+//	if (bQTEActive) return;
+//
+//	const auto HitActor = SweepResult.GetActor();
+//	if (!HitActor)
+//	{
+//		UE_LOG(GP_AICharacterLog, Display, TEXT("OnOverlapHit:: No HitActor"));
+//		return;
+//	}
+//
+//	if (HitActor == this) return;
+//	
+//	const auto AIController = Cast<AGP_AIController>(Controller);
+//	const auto BehaviorType = AIController->GetTeamAttitudeTowards(*HitActor);
+//	if (BehaviorType == ETeamAttitude::Neutral)
+//	{
+//		UE_LOG(GP_AICharacterLog, Display, TEXT("AIController = %s, BehaviorType == ETeamAttitude::Neutral = %s"), *AIController->GetName(), BehaviorType == ETeamAttitude::Neutral ? TEXT("TRUE") : TEXT("FALSE"));
+//		return;
+//	}
+//
+//	if (!bIsDamageDone && BehaviorType == ETeamAttitude::Hostile)
+//	{
+//		UE_LOG(GP_AICharacterLog, Display, TEXT("HitActor = %s, BehaviorType == ETeamAttitude::Hostile = %s"), *HitActor->GetName(), BehaviorType == ETeamAttitude::Hostile ? TEXT("TRUE") : TEXT("FALSE"));
+//		HitActor->TakeDamage(DamageAmount, FDamageEvent{}, Controller, this);
+//		bIsDamageDone = true;
+//	}
+//}
 
 void AGP_AICharacter::HandleDeath()
 {
