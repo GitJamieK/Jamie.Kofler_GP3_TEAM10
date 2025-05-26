@@ -68,10 +68,13 @@ public:
 	FOnQTEFinishedSignature OnQTEFinished;
 
 	UFUNCTION(BlueprintCallable, Category = "AI|Behavior")
-	void StartQTE();
+	void StartQTE(AActor* PlayerToDamage);
 
 	UFUNCTION(BlueprintCallable, Category = "AI|Behavior")
-	void OnQTEButtonPressed();
+	void FinishQTE();
+
+	/*UFUNCTION(BlueprintCallable, Category = "AI|Behavior")
+	void OnQTEButtonPressed();*/
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "AI|BehaviorTree")
 	TObjectPtr<UBehaviorTree> BehaviorTree;
@@ -106,15 +109,12 @@ public:
 
 private:
 
-	FTimerHandle QTEFillTimerHandle;
-
-	float QTEProgress = 0.0f;
-	float QTEFillTime = 2.0f;
-	float QTEDrainPerPress = 0.2f;
-	float QTEThreshold = 1.0f;
 	bool bQTEActive = false;
+	AActor* QTETarget = nullptr;
 
-	void FailQTE();
+
+	UPROPERTY(EditDefaultsOnly, Category = "QTE")
+	float QTEAttackRateTime = 3.0f;
 
 	bool bIsDamageDone = false;
 
@@ -130,4 +130,6 @@ private:
 
 	UFUNCTION()
 	void HandleDeath();
+
+	void HandleQTEAttack();
 };

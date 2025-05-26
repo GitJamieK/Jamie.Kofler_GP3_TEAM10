@@ -83,7 +83,7 @@ void UGP_ManageAttackTurnService::TickNode(UBehaviorTreeComponent& OwnerComp, ui
 			bCanAttack = AI == CurrentAttacker;
 		}
 		AIBlackboard->SetValueAsBool(CanAttackKey.SelectedKeyName, bCanAttack);
-		UE_LOG(GP_ManageAttackTurnServiceLog, Display, TEXT("Controller = %s, bCanAttack = %s"), *AI->GetName(), bCanAttack ? TEXT("TRUE") : TEXT("FALSE"));
+		//UE_LOG(GP_ManageAttackTurnServiceLog, Display, TEXT("Controller = %s, bCanAttack = %s"), *AI->GetName(), bCanAttack ? TEXT("TRUE") : TEXT("FALSE"));
 	}
 }
 

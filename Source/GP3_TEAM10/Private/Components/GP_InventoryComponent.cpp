@@ -7,7 +7,7 @@
 // Sets default values for this component's properties
 UGP_InventoryComponent::UGP_InventoryComponent()
 {
-	// Set this component to be initialized when the game starts and to be ticked every frame.  You can turn these features
+	// Set this component to be initialized when the game starts, and to be ticked every frame.  You can turn these features
 	// off to improve performance if you don't need them.
 	PrimaryComponentTick.bCanEverTick = false;
 
@@ -24,12 +24,14 @@ void UGP_InventoryComponent::BeginPlay()
 	Super::BeginPlay();
 }
 
-void UGP_InventoryComponent::AddItem(EItemType ItemType, int32 Amount)
+void UGP_InventoryComponent::AddItem(EItemType ItemType, int32 Amount, int32 MaxAmount)
 {
 	if (ItemType == EItemType::None || Amount <= 0) return;
 
 	int32& Count = Inventory.FindOrAdd(ItemType);
 	Count += Amount;
+
+	if (Count > MaxAmount && MaxAmount != 0) Count = MaxAmount;
 
 	OnInventoryChanged.Broadcast();
 }
@@ -43,3 +45,7 @@ bool UGP_InventoryComponent::UseItem(EItemType ItemType)
 	OnInventoryChanged.Broadcast();
 	return true;
 }
+
+
+
+

@@ -31,7 +31,7 @@ EBTNodeResult::Type UGP_CrawlerAttackTask::ExecuteTask(UBehaviorTreeComponent& O
         return EBTNodeResult::Failed;
     }
 
-    ACharacter* Player = Cast<ACharacter>(Blackboard->GetValueAsObject(TargetActorKey.SelectedKeyName));
+    AActor* Player = Cast<AActor>(Blackboard->GetValueAsObject(TargetActorKey.SelectedKeyName));
 
     if (!Player)
     {
@@ -39,20 +39,22 @@ EBTNodeResult::Type UGP_CrawlerAttackTask::ExecuteTask(UBehaviorTreeComponent& O
         return EBTNodeResult::Failed;
     }
 
-    FVector JumpTarget = Player->GetActorLocation() + FVector(0, 0, 100); // ???
-
-    FVector Direction = (JumpTarget - Crawler->GetActorLocation()).GetSafeNormal();
-    Crawler->LaunchCharacter(Direction * 600 + FVector(0, 0, 400), true, true);
-
-    Crawler->OnQTEFinished.AddDynamic(this, &UGP_CrawlerAttackTask::OnQTEComplete);
-    Crawler->StartQTE();
-
     if (Player && Player->GetClass()->ImplementsInterface(UGP_QTETargetInterface::StaticClass()))
     {
-        IGP_QTETargetInterface::Execute_StartQTE(Player, Crawler);
-    }
+        //FVector JumpTarget = Player->GetActorLocation() + FVector(0, 0, 100);
+        //FVector Direction = (JumpTarget - Crawler->GetActorLocation()).GetSafeNormal();
+        //Crawler->LaunchCharacter(Direction * 600 + FVector(0, 0, 400), true, true);
 
-    Controller->BrainComponent->PauseLogic("QTE In Progress");
+        const FTransform AttackPoint = IGP_QTETargetInterface::Execute_GetAttackPoint(Player);
+        //Crawler->SetActorTransform(AttackPoint);
+        //Crawler->SetActorLocation(AttackPoint.GetLocation());
+        Crawler->OnQTEFinished.AddDynamic(this, &UGP_CrawlerAttackTask::OnQTEComplete);
+        Crawler->StartQTE(Player);
+
+        IGP_QTETargetInterface::Execute_StartQTE(Player, Crawler);
+
+        Controller->BrainComponent->PauseLogic("QTE In Progress");
+    }
 
     return EBTNodeResult::InProgress;
 }
@@ -67,6 +69,7 @@ void UGP_CrawlerAttackTask::TickTask(UBehaviorTreeComponent& OwnerComp, uint8* N
 
 void UGP_CrawlerAttackTask::OnQTEComplete(bool bSuccess)
 {
+
     const auto Controller = CachedOwnerComp->GetAIOwner();
     const auto Blackboard = CachedOwnerComp->GetBlackboardComponent();
     if (!Controller || !Blackboard) return;
@@ -74,22 +77,26 @@ void UGP_CrawlerAttackTask::OnQTEComplete(bool bSuccess)
     const auto Crawler = Cast<AGP_AICharacter>(Controller->GetPawn());
     if (!Crawler) return;
 
+    Crawler->FinishQTE();
     Crawler->OnQTEFinished.RemoveDynamic(this, &UGP_CrawlerAttackTask::OnQTEComplete);
 
     ACharacter* Player = Cast<ACharacter>(Blackboard->GetValueAsObject(TargetActorKey.SelectedKeyName));
     if (!Player) return;
 
+    UE_LOG(GP_CrawlerAttackTaskLog, Display, TEXT("OnQTEComplete"));
     if (bSuccess)
     {
         FVector PushBack = (Crawler->GetActorLocation() - Player->GetActorLocation()).GetSafeNormal();
         Crawler->LaunchCharacter(PushBack * 800 + FVector(0, 0, 300), true, true);
+        bQTECompleted = true;
+        Controller->BrainComponent->ResumeLogic("QTE Finished");
     }
     else
     {
         // death to player
+        bQTECompleted = true;
+        Controller->BrainComponent->ResumeLogic("QTE Finished");
     }
 
-    bQTECompleted = true;
-    Controller->BrainComponent->ResumeLogic("QTE Finished");
 }
 

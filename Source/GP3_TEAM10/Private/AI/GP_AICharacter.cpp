@@ -48,28 +48,25 @@ void AGP_AICharacter::BeginPlay()
 	check(HealthComponent);
 
 	HealthComponent->OnDeath.AddDynamic(this, &AGP_AICharacter::HandleDeath);
+
+	SetCurrentAnimState(StartAnimState);
 }
 
-void AGP_AICharacter::StartQTE()
+void AGP_AICharacter::StartQTE(AActor* PlayerToDamage)
 {
+	if (bQTEActive) return;
 	bQTEActive = true;
-	QTEProgress = 0.0f;
-
-	GetWorldTimerManager().SetTimer(QTEFillTimerHandle, this, &AGP_AICharacter::FailQTE, QTEFillTime, false);
+	QTETarget = PlayerToDamage;
+	Attack(); 
+	
+	GetWorld()->GetTimerManager().SetTimer(AttackTimerHandle, this, &AGP_AICharacter::HandleQTEAttack, QTEAttackRateTime, true);
 }
 
-void AGP_AICharacter::OnQTEButtonPressed()
+void AGP_AICharacter::FinishQTE()
 {
-	if (!bQTEActive) return;
-
-	QTEProgress += QTEDrainPerPress;
-
-	if (QTEProgress >= QTEThreshold)
-	{
-		bQTEActive = false;
-		GetWorldTimerManager().ClearTimer(QTEFillTimerHandle);
-		OnQTEFinished.Broadcast(true);
-	}
+	GetWorld()->GetTimerManager().ClearTimer(AttackTimerHandle);
+	bQTEActive = false;
+	QTETarget = nullptr;
 }
 
 void AGP_AICharacter::SetCurrentAnimState(EAIAnimState NextAnimState)
@@ -88,15 +85,6 @@ void AGP_AICharacter::SetCurrentAnimState(EAIAnimState NextAnimState)
 void AGP_AICharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-
-	/*UAnimInstance* AnimationInstance = GetMesh()->GetAnimInstance();
-
-	if (CurrentAnimState == EAIAnimState::Walk && AnimationInstance)
-	{
-		SpeedMultiplier = AnimationInstance->GetCurveValue(FName("SpeedMultiplier"));
-		GetCharacterMovement()->MaxWalkSpeed = BaseSpeed * SpeedMultiplier;
-		UE_LOG(GP_AICharacterLog, Display, TEXT("Change speed: %f"), BaseSpeed * SpeedMultiplier);
-	}*/
 }
 
 void AGP_AICharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -114,8 +102,6 @@ void AGP_AICharacter::Attack()
 		PlayAnimMontage(AttackAnimMontage);
 	}
 	SetCurrentAnimState(EAIAnimState::Attack);
-
-	//GetWorld()->GetTimerManager().SetTimer(AttackTimerHandle, this, &AGP_AICharacter::StopAttack, AttackAnimMontage->CalculateSequenceLength(), false);
 }
 
 void AGP_AICharacter::StopAttack()
@@ -124,7 +110,6 @@ void AGP_AICharacter::StopAttack()
 
 	OnFinishedAttack.Broadcast();
 
-	//GetWorld()->GetTimerManager().ClearTimer(AttackTimerHandle);
 	bIsDamageDone = false;
 }
 
@@ -135,18 +120,19 @@ void AGP_AICharacter::FinishAwake()
 	//SetCurrentAnimState(EAIAnimState::Idle);
 }
 
-void AGP_AICharacter::FailQTE()
-{
-	if (!bQTEActive) return;
-
-	bQTEActive = false;
-	OnQTEFinished.Broadcast(false);
-}
+//void AGP_AICharacter::FailQTE()
+//{
+//	if (!bQTEActive) return;
+//
+//	bQTEActive = false;
+//	OnQTEFinished.Broadcast(false);
+//}
 
 void AGP_AICharacter::OnOverlapHit(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
 	//Is it attack? broadcact event ?
 	if (CurrentAnimState != EAIAnimState::Attack) return;
+	if (bQTEActive) return;
 
 	const auto HitActor = SweepResult.GetActor();
 	if (!HitActor)
@@ -196,5 +182,18 @@ void AGP_AICharacter::HandleDeath()
 	else
 	{
 		UE_LOG(GP_AICharacterLog, Display, TEXT("no"));
+	}
+}
+
+void AGP_AICharacter::HandleQTEAttack()
+{
+	if(QTETarget)
+	{
+		QTETarget->TakeDamage(DamageAmount, FDamageEvent{}, Controller, this);
+		UE_LOG(GP_AICharacterLog, Display, TEXT("HandleQTEAttack"));
+	}
+	else
+	{
+		UE_LOG(GP_AICharacterLog, Display, TEXT("no QTETarget"));
 	}
 }

@@ -30,7 +30,8 @@ protected:
 
 private:
 
-    UBehaviorTreeComponent* CachedOwnerComp = nullptr;;
+    UBehaviorTreeComponent* CachedOwnerComp = nullptr;
     bool bQTECompleted = false;
+    bool bQTEStarted = false;
 	
 };

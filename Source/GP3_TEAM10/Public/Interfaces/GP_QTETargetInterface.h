@@ -22,4 +22,10 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 	void StartQTE(AActor* InstigatorActor);
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+	FTransform GetAttackPoint() const;
+
+	UFUNCTION(BlueprintImplementableEvent, Category = "QTE")
+	void OnQTEProgressUpdated(float Progress, float TimeLeft);
 };

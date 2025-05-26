@@ -26,7 +26,7 @@ public:
 	TMap<EItemType, int32> Inventory;
 
 	UFUNCTION(BlueprintCallable)
-	void AddItem(EItemType ItemType, int32 Amount = 1);
+	void AddItem(EItemType ItemType, int32 Amount = 1, int32 MaxAmount = 0);
 	
 	UFUNCTION(BlueprintCallable)
 	bool UseItem(EItemType ItemType);
