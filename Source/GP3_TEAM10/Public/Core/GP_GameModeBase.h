@@ -35,7 +35,10 @@ public:
 	void HandleDeathState();
 
 	UFUNCTION(BlueprintCallable)
-	void HandleQTEState();
+	void StartQTEState();
+
+	UFUNCTION(BlueprintCallable)
+	void FinishQTEState();
 
 	UFUNCTION(BlueprintCallable)
 	void HandlePauseState(APlayerController* PC);

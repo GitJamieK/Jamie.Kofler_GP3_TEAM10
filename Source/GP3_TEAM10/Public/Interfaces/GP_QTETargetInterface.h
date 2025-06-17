@@ -24,6 +24,9 @@ public:
 	void StartQTE(AActor* InstigatorActor);
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+	void FinishQTE();
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 	FTransform GetAttackPoint() const;
 
 	UFUNCTION(BlueprintImplementableEvent, Category = "QTE")

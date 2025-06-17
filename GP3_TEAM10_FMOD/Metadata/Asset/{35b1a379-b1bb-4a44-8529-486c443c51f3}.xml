@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<objects serializationModel="Studio.02.03.00">
+	<object class="EncodableAsset" id="{35b1a379-b1bb-4a44-8529-486c443c51f3}">
+		<property name="color">
+			<value>Red Light 1</value>
+		</property>
+		<property name="assetPath">
+			<value>Enemies/Zombie/</value>
+		</property>
+		<relationship name="masterAssetFolder">
+			<destination>{1424d0e2-5ab2-4326-8cd3-d3e5779d662b}</destination>
+		</relationship>
+	</object>
+</objects>

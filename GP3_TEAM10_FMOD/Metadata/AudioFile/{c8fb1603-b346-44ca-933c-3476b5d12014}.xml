@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<objects serializationModel="Studio.02.03.00">
+	<object class="AudioFile" id="{c8fb1603-b346-44ca-933c-3476b5d12014}">
+		<property name="color">
+			<value>Blue Light 1</value>
+		</property>
+		<property name="assetPath">
+			<value>Player/Footsteps/Stone/FootstepsStone_l4.wav</value>
+		</property>
+		<property name="frequencyInKHz">
+			<value>44.0999985</value>
+		</property>
+		<property name="channelCount">
+			<value>2</value>
+		</property>
+		<property name="length">
+			<value>0.46258503401360546</value>
+		</property>
+		<relationship name="masterAssetFolder">
+			<destination>{1424d0e2-5ab2-4326-8cd3-d3e5779d662b}</destination>
+		</relationship>
+	</object>
+</objects>

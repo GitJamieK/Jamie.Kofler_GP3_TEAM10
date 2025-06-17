@@ -25,6 +25,12 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Generic Team Id")
 	virtual FGenericTeamId GetGenericTeamId() const override;
 
+	UFUNCTION()
+	void HandleDamage(float Damage, const UDamageType* DamageType, AController* InstigatedBy);
+
+	int32 GetReservedAttackTokens() const { return ReservedAttackTokens; }
+	void SetReservedAttackTokens(int32 TokenAmount);
+
 protected:
 
 	virtual void OnPossess(APawn* InPawn) override;
@@ -39,4 +45,6 @@ protected:
 private:
 
 	AActor* GetFocusOnActor() const;
+
+	int32 ReservedAttackTokens = 0;
 };

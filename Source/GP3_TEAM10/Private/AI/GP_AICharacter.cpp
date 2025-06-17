@@ -10,6 +10,9 @@
 #include "AI/GP_AIController.h"
 #include "BrainComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "Weapon/DamageType/GP_FireDamageType.h"
+#include "Weapon/DamageType/GP_ElectricityDamageType.h"
+#include "Core/GP_AttackTokenSubsystem.h"
 
 DEFINE_LOG_CATEGORY_STATIC(GP_AICharacterLog, All, All);
 
@@ -26,17 +29,6 @@ AGP_AICharacter::AGP_AICharacter()
 		GetCharacterMovement()->bUseControllerDesiredRotation = true;
 	}
 
-	/*RightHandCollision = CreateDefaultSubobject<UBoxComponent>("RightHandCollision");
-	FAttachmentTransformRules AttachmentRules(EAttachmentRule::KeepRelative, false);
-	RightHandCollision->AttachToComponent(GetMesh(), AttachmentRules, "RightHandCollisionSocket");
-	RightHandCollision->OnComponentBeginOverlap.AddDynamic(this, &AGP_AICharacter::OnOverlapHit);
-	RightHandCollision->IgnoreActorWhenMoving(GetOwner(), true);
-
-	LeftHandCollision = CreateDefaultSubobject<UBoxComponent>("LefttHandCollision");
-	LeftHandCollision->AttachToComponent(GetMesh(), AttachmentRules, "LeftHandCollisionSocket");
-	LeftHandCollision->OnComponentBeginOverlap.AddDynamic(this, &AGP_AICharacter::OnOverlapHit);
-	LeftHandCollision->IgnoreActorWhenMoving(GetOwner(), true);*/
-
 	HealthComponent = CreateDefaultSubobject<UGP_HealthComponent>("HealthComponent");
 
 	SetCurrentAnimState(StartAnimState);
@@ -48,6 +40,13 @@ void AGP_AICharacter::BeginPlay()
 	check(HealthComponent);
 
 	HealthComponent->OnDeath.AddDynamic(this, &AGP_AICharacter::HandleDeath);
+	HealthComponent->OnDamage.AddDynamic(this, &AGP_AICharacter::HandleDamage);
+
+	/*const auto AIController = Cast<AGP_AIController>(Controller);
+	if (AIController)
+	{
+		HealthComponent->OnDamage.AddDynamic(AIController, &AGP_AIController::HandleDamage);
+	}*/
 
 	SetCurrentAnimState(StartAnimState);
 }
@@ -55,8 +54,11 @@ void AGP_AICharacter::BeginPlay()
 void AGP_AICharacter::StartQTE(AActor* PlayerToDamage)
 {
 	if (bQTEActive) return;
+
+	OnQTEStarted.Broadcast();
 	bQTEActive = true;
 	QTETarget = PlayerToDamage;
+	UE_LOG(GP_AICharacterLog, Display, TEXT("%s started QTE: %s"), *GetName(), bQTEActive ? TEXT("TRUE") : TEXT("FALSE"));
 	Attack(); 
 	
 	GetWorld()->GetTimerManager().SetTimer(AttackTimerHandle, this, &AGP_AICharacter::HandleQTEAttack, QTEAttackRateTime, true);
@@ -67,6 +69,26 @@ void AGP_AICharacter::FinishQTE()
 	GetWorld()->GetTimerManager().ClearTimer(AttackTimerHandle);
 	bQTEActive = false;
 	QTETarget = nullptr;
+
+	if (AttackAnimMontage)
+	{
+		UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+		if (AnimInstance)
+		{
+			if (!HealthComponent->IsDead())
+			{
+				if (!AnimInstance->Montage_IsPlaying(AttackAnimMontage))
+				{
+					AnimInstance->Montage_Play(AttackAnimMontage, 1.0f);
+				}
+				AnimInstance->Montage_SetNextSection(FName("Bite_Loop"), FName("Bite_End"), AttackAnimMontage);
+				AnimInstance->Montage_JumpToSection(FName("Bite_End"), AttackAnimMontage);
+			}
+		}
+	}
+	//HandleNextAnimation(FName("EndAttack"));
+
+	UE_LOG(GP_AICharacterLog, Display, TEXT("%s finished QTE: %s"), *GetName(), bQTEActive ? TEXT("TRUE") : TEXT("FALSE"));
 }
 
 void AGP_AICharacter::SetCurrentAnimState(EAIAnimState NextAnimState)
@@ -85,6 +107,11 @@ void AGP_AICharacter::SetCurrentAnimState(EAIAnimState NextAnimState)
 void AGP_AICharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
+	if (GetWorld()->GetTimerManager().IsTimerActive(HitImpactShaderTimerHandle))
+	{
+		ElapsedTimeBetweenHit = GetWorld()->GetTimerManager().GetTimerElapsed(HitImpactShaderTimerHandle);
+	}
 }
 
 void AGP_AICharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -100,13 +127,48 @@ void AGP_AICharacter::Attack()
 
 	if (AttackAnimMontage)
 	{
-		PlayAnimMontage(AttackAnimMontage);
+		UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+		if (AnimInstance)
+		{
+			if (AnimInstance->Montage_IsPlaying(AttackAnimMontage))
+			{
+				FName CurrentPlayingSection = AnimInstance->Montage_GetCurrentSection(AttackAnimMontage);
+				if (CurrentPlayingSection == FName("Knockback"))
+				{
+					GetWorld()->GetTimerManager().ClearTimer(AnimationTimerHandle);
+					AnimInstance->Montage_Stop(0.0f, AttackAnimMontage);
+					UE_LOG(GP_AICharacterLog, Display, TEXT("CurrentPlayingSection == Knockback"));
+				}
+			}
+			if (!bQTEActive)
+			{
+				//PlayAnimMontage(AttackAnimMontage);
+
+				AnimInstance->Montage_Play(AttackAnimMontage);
+				AnimInstance->Montage_JumpToSection(FName("Attack"), AttackAnimMontage);
+			}
+			else
+			{
+				AnimInstance->Montage_Play(AttackAnimMontage);
+				AnimInstance->Montage_JumpToSection(FName("Bite_Start"), AttackAnimMontage);
+				AnimInstance->Montage_SetNextSection(FName("Bite_Start"), FName("Bite_Loop"), AttackAnimMontage);
+				AnimInstance->Montage_SetNextSection(FName("Bite_Loop"), FName("Bite_Loop"), AttackAnimMontage);
+
+				/*float SectionLength = AttackAnimMontage->GetSectionLength(AttackAnimMontage->GetSectionIndex(FName("StartAttack")));
+				PlayAnimMontage(AttackAnimMontage, 1, FName("StartAttack"));
+
+				FTimerDelegate InDelegate;
+				InDelegate.BindUFunction(this, FName("HandleNextAnimation"), FName("LoopAttack"));
+
+				GetWorld()->GetTimerManager().SetTimer(AnimationTimerHandle, InDelegate, SectionLength, false);*/
+			}
+		}
 	}
 }
 
 void AGP_AICharacter::StopAttack()
 {
-	UE_LOG(GP_AICharacterLog, Display, TEXT("StopAttack"));
+	//UE_LOG(GP_AICharacterLog, Display, TEXT("StopAttack"));
 
 	OnFinishedAttack.Broadcast();
 
@@ -117,71 +179,213 @@ void AGP_AICharacter::FinishAwake()
 {
 	//bIsAwakening = false;
 	OnFinishedAwake.Broadcast();
+
+	if (HealthComponent->IsImmortal())
+	{
+		HealthComponent->SetIsImmortal(!HealthComponent->IsImmortal());
+	}
 	//SetCurrentAnimState(EAIAnimState::Idle);
 }
-
-//void AGP_AICharacter::FailQTE()
-//{
-//	if (!bQTEActive) return;
-//
-//	bQTEActive = false;
-//	OnQTEFinished.Broadcast(false);
-//}
-
-//void AGP_AICharacter::OnOverlapHit(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
-//{
-//	//Is it attack? broadcact event ?
-//	if (CurrentAnimState != EAIAnimState::Attack) return;
-//	if (bQTEActive) return;
-//
-//	const auto HitActor = SweepResult.GetActor();
-//	if (!HitActor)
-//	{
-//		UE_LOG(GP_AICharacterLog, Display, TEXT("OnOverlapHit:: No HitActor"));
-//		return;
-//	}
-//
-//	if (HitActor == this) return;
-//	
-//	const auto AIController = Cast<AGP_AIController>(Controller);
-//	const auto BehaviorType = AIController->GetTeamAttitudeTowards(*HitActor);
-//	if (BehaviorType == ETeamAttitude::Neutral)
-//	{
-//		UE_LOG(GP_AICharacterLog, Display, TEXT("AIController = %s, BehaviorType == ETeamAttitude::Neutral = %s"), *AIController->GetName(), BehaviorType == ETeamAttitude::Neutral ? TEXT("TRUE") : TEXT("FALSE"));
-//		return;
-//	}
-//
-//	if (!bIsDamageDone && BehaviorType == ETeamAttitude::Hostile)
-//	{
-//		UE_LOG(GP_AICharacterLog, Display, TEXT("HitActor = %s, BehaviorType == ETeamAttitude::Hostile = %s"), *HitActor->GetName(), BehaviorType == ETeamAttitude::Hostile ? TEXT("TRUE") : TEXT("FALSE"));
-//		HitActor->TakeDamage(DamageAmount, FDamageEvent{}, Controller, this);
-//		bIsDamageDone = true;
-//	}
-//}
 
 void AGP_AICharacter::HandleDeath()
 {
 	UE_LOG(GP_AICharacterLog, Display, TEXT("%s are dead"), *GetName());
 	const auto AIController = Cast<AGP_AIController>(Controller);
-	if (AIController && AIController->BrainComponent)
+	if (AIController && AIController->BrainComponent && GetMesh())
 	{
-		UE_LOG(GP_AICharacterLog, Display, TEXT("AIController && AIController->BrainComponent"));
+		//UE_LOG(GP_AICharacterLog, Display, TEXT("AIController && AIController->BrainComponent"));
+		GetWorld()->GetTimerManager().ClearTimer(AttackTimerHandle);
 		StopAttack();
+
+		//AIController->SetReservedAttackTokens(0);
+
+		UGP_AttackTokenSubsystem* AttackTokenSubsystem = GetWorld()->GetSubsystem<UGP_AttackTokenSubsystem>();
+		if (AttackTokenSubsystem)
+		{
+			AttackTokenSubsystem->ReleaseToken(AIController, 1);
+		}
+
+
 		AIController->BrainComponent->Cleanup();
 
+		SetCurrentAnimState(EAIAnimState::Death);
 		if (DeathAnimMontage)
 		{
-			PlayAnimMontage(DeathAnimMontage);
-			SetLifeSpan(DeathAnimMontage->CalculateSequenceLength() + 5.5f); // change it
+			UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+			if (AnimInstance)
+			{
+				if(AnimInstance->Montage_IsPlaying(AttackAnimMontage))
+				{
+					AnimInstance->Montage_Stop(0.25f, AttackAnimMontage);
+				}
+				float AnimLength = AnimInstance->Montage_Play(DeathAnimMontage);
+				SetLifeSpan(AnimLength + 5.5f);
+			}
+			//PlayAnimMontage(DeathAnimMontage);
+			//SetLifeSpan(DeathAnimMontage->CalculateSequenceLength() + 5.5f);
 		}
-		SetCurrentAnimState(EAIAnimState::Death);
 
 		GetCharacterMovement()->DisableMovement();
 		GetCapsuleComponent()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Pawn, ECollisionResponse::ECR_Ignore);
+		if (OverlayMaterialInstance)
+		{
+			GetWorld()->GetTimerManager().ClearTimer(HitImpactShaderTimerHandle);
+			FTimerDelegate InDelegate;
+			InDelegate.BindUFunction(this, FName("StartImpactShaderFade"), OverlayMaterialInstance);
+
+			GetWorld()->GetTimerManager().SetTimer(HitImpactShaderTimerHandle, InDelegate, ThresholdForCumulativeImpactShader, false);
+		}
 	}
 	else
 	{
-		UE_LOG(GP_AICharacterLog, Display, TEXT("no"));
+		//UE_LOG(GP_AICharacterLog, Display, TEXT("no"));
+	}
+}
+
+void AGP_AICharacter::HandleDamage(float Damage, const UDamageType* DamageType, AController* InstigatedBy)
+{
+	if(bQTEActive) return; // need to think how to solve the problem, then enemy already starts QTE attack, but received damage, so enemy freezes. Maybe think about AbortTask, but when?
+	if (AttackAnimMontage && CurrentAnimState != EAIAnimState::StandUp && CurrentAnimState != EAIAnimState::Sleep && !bQTEActive) // uuuugh!!! just for now, Find right way to play animations 
+	{
+		StopAttack();
+		UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+		if (AnimInstance && AttackAnimMontage->IsValidSectionName(FName("Knockback")))
+		{
+			float BlendInTime = 0.45f;
+			FAlphaBlendArgs AlphaBlendArgs;
+			AlphaBlendArgs.BlendTime = BlendInTime;
+			AlphaBlendArgs.BlendOption = EAlphaBlendOption::CubicInOut;
+
+			FMontageBlendSettings MontageBlendSettings(AlphaBlendArgs);
+
+			AnimInstance->Montage_PlayWithBlendSettings(AttackAnimMontage, MontageBlendSettings);
+
+			//AnimInstance->Montage_Play(AttackAnimMontage);
+			AnimInstance->Montage_JumpToSection(FName("Knockback"), AttackAnimMontage);
+
+			//FTimerHandle BlendOutTimer;
+			FTimerDelegate InDelegate;
+			float RateTime = BlendInTime + 0.1f; //if use Montage_Play so BlendInTime by default = 0.5f, use RateTime = 0.6f
+			InDelegate.BindUFunction(this, FName("HandleAnimBlendOut"), AttackAnimMontage, FName("Knockback"), RateTime);
+			GetWorld()->GetTimerManager().SetTimer(AnimationTimerHandle, InDelegate, RateTime, false);
+		}
+	}
+
+	int32 MagicType = -1;
+	if (DamageType->IsA<UGP_ElectricityDamageType>())
+	{
+		MagicType = 0;
+	}
+	else if (DamageType->IsA<UGP_FireDamageType>())
+	{
+		MagicType = 1;
+	}
+	if (PreviousType != MagicType)
+	{
+		PreviousType = MagicType;
+		HitCount = 0;
+	}
+
+	if(MagicType == -1) return;
+	GetWorld()->GetTimerManager().ClearTimer(HitImpactShaderTimerHandle);
+	//UE_LOG(GP_AICharacterLog, Display, TEXT("HandleDamage"));
+
+	if (GetMesh())
+	{
+		if (!OverlayMaterialInstance)
+		{
+			UMaterialInterface* OverlayMaterial = GetMesh()->GetOverlayMaterial();
+			if (OverlayMaterial)
+			{
+				OverlayMaterialInstance = UMaterialInstanceDynamic::Create(OverlayMaterial, this);
+				GetMesh()->SetOverlayMaterial(OverlayMaterialInstance);
+			}
+
+		}
+
+		if (OverlayMaterialInstance)
+		{
+			OverlayMaterialInstance->SetScalarParameterValue(TEXT("SWITCH BETWEEN MAGIC (0=Electricity, 1=Fire)"), MagicType);
+			OverlayMaterialInstance->SetScalarParameterValue(TEXT("SWITCH ON/OFF IMPACT SHADER (0=OFF, 1=ON)"), 1.0f);
+
+			if (ElapsedTimeBetweenHit <= ThresholdForCumulativeImpactShader)
+			{
+				ElapsedTimeBetweenHit = 0;
+
+				HitCount++;
+				if (HitCount > 0 /*&& HitCount <= MaxHitForCumulativeImpactShader*/)
+				{
+					float CumulativeImpactShaderAlpha = FMath::Clamp(static_cast<float>(HitCount) / MaxHitForCumulativeImpactShader, 0.f, 1.f);
+					float NextCumulativeImpactIntensity = FMath::Lerp(0.0f, 1.0f, CumulativeImpactShaderAlpha);
+					OverlayMaterialInstance->SetScalarParameterValue(TEXT("MORE HIT DAMAGE (0=OFF, 1=MAX)"), NextCumulativeImpactIntensity);
+					//UE_LOG(GP_AICharacterLog, Display, TEXT("HandleDamage: HitCount = %d, MaxHitForCumulativeImpactShader = %d, MagicType = %d, CumulativeImpactShaderAlpha = %f "), HitCount, MaxHitForCumulativeImpactShader, MagicType, CumulativeImpactShaderAlpha);
+				}
+				else
+				{
+					//UE_LOG(GP_AICharacterLog, Display, TEXT("HandleDamage: HitCount = %d, MagicType = %d"), HitCount, MagicType);
+				}
+
+
+				FTimerDelegate InDelegate;
+				InDelegate.BindUFunction(this, FName("StartImpactShaderFade"), OverlayMaterialInstance);
+
+				GetWorld()->GetTimerManager().SetTimer(HitImpactShaderTimerHandle, InDelegate, ThresholdForCumulativeImpactShader, false);
+			}
+			else
+			{
+				// Start Impact Shader Fade
+				/*ElapsedTimeBetweenHit = 0;
+				CurrentImpactShaderStep = 0;
+				HitCount = 0;
+				float TotalSteps = HitImpactShaderDuration / HitImpactShaderRateTime;
+
+				FTimerDelegate InDelegate;
+				InDelegate.BindUFunction(this, FName("UpdateImpactShaderFade"), OverlayMaterialInstance, TotalSteps);
+
+				GetWorld()->GetTimerManager().SetTimer(HitImpactShaderTimerHandle, InDelegate, HitImpactShaderRateTime, true);*/
+			}
+		}
+	}
+}
+
+void AGP_AICharacter::StartImpactShaderFade(UMaterialInstanceDynamic* Material)
+{
+	float CurrentCumulativeImpactShader = 0;
+	Material->GetScalarParameterValue(TEXT("MORE HIT DAMAGE (0=OFF, 1=MAX)"), CurrentCumulativeImpactShader);
+	ElapsedTimeBetweenHit = 0;
+	CurrentImpactShaderStep = 0;
+	HitCount = 0;
+	float TotalSteps = HitImpactShaderFadeDuration / HitImpactShaderFadeRateTime;
+
+	FTimerDelegate InDelegate;
+	InDelegate.BindUFunction(this, FName("UpdateImpactShaderFade"), Material, TotalSteps, CurrentCumulativeImpactShader);
+
+	GetWorld()->GetTimerManager().SetTimer(HitImpactShaderTimerHandle, InDelegate, HitImpactShaderFadeRateTime, true);
+}
+
+void AGP_AICharacter::UpdateImpactShaderFade(UMaterialInstanceDynamic* Material, float StepAmount, float CurrentIntensityImpactShader)
+{
+	if (!Material)
+	{
+		GetWorld()->GetTimerManager().ClearTimer(HitImpactShaderTimerHandle);
+		return;
+	}
+
+	float Alpha = FMath::Clamp(static_cast<float>(CurrentImpactShaderStep) / StepAmount, 0.f, 1.f);
+	float NextImpactShaderValue = FMath::Lerp(1.0f, 0.0f, Alpha);
+	//UE_LOG(GP_AICharacterLog, Display, TEXT("NextImpactShaderValue: %f, Alpha: %f, StepAmount: %f, CurrentImpactShaderStep: %d"), NextImpactShaderValue, Alpha, StepAmount, CurrentImpactShaderStep);
+
+	float NextCumulativeImpactIntensity = FMath::Lerp(CurrentIntensityImpactShader, 0.0f, Alpha);
+
+	Material->SetScalarParameterValue(TEXT("SWITCH ON/OFF IMPACT SHADER (0=OFF, 1=ON)"), NextImpactShaderValue);
+	Material->SetScalarParameterValue(TEXT("MORE HIT DAMAGE (0=OFF, 1=MAX)"), NextCumulativeImpactIntensity);
+	CurrentImpactShaderStep++;
+
+	//UE_LOG(GP_AICharacterLog, Display, TEXT("CurrentStep: %d"), CurrentImpactShaderStep);
+
+	if (CurrentImpactShaderStep > StepAmount)
+	{
+		GetWorld()->GetTimerManager().ClearTimer(HitImpactShaderTimerHandle);
 	}
 }
 
@@ -190,10 +394,67 @@ void AGP_AICharacter::HandleQTEAttack()
 	if(QTETarget)
 	{
 		QTETarget->TakeDamage(DamageAmount, FDamageEvent{}, Controller, this);
-		UE_LOG(GP_AICharacterLog, Display, TEXT("HandleQTEAttack"));
+		//UE_LOG(GP_AICharacterLog, Display, TEXT("HandleQTEAttack"));
 	}
 	else
 	{
 		UE_LOG(GP_AICharacterLog, Display, TEXT("no QTETarget"));
+	}
+}
+
+void AGP_AICharacter::HandleAnimBlendOut(UAnimMontage* AnimMontage, FName InSectionName, float BlendOutStartTime)
+{
+	GetWorld()->GetTimerManager().ClearTimer(AnimationTimerHandle);
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance && AnimMontage && AnimMontage->IsValidSectionName(InSectionName))
+	{
+		float SectionLength = GetMontageSectionLength(AnimMontage, InSectionName);
+		float BlendOutTime = SectionLength - BlendOutStartTime;
+		UE_LOG(GP_AICharacterLog, Display, TEXT("Section %s Length = %f"), *InSectionName.ToString(), SectionLength);
+
+		// Montage_StopWithBlendSettings(const FMontageBlendSettings& BlendOutSettings, const UAnimMontage* Montage = nullptr);
+		// struct FMontageBlendSettings
+		// FMontageBlendSettings(const FAlphaBlendArgs& BlendArgs);
+		// FAlphaBlendArgs
+		// FAlphaBlendArgs(float InBlendTime);
+		// FAlphaBlendArgs(const struct FAlphaBlend& InAlphaBlend);
+
+		FAlphaBlendArgs AlphaBlendArgs;
+		AlphaBlendArgs.BlendTime = BlendOutTime;
+		AlphaBlendArgs.BlendOption = EAlphaBlendOption::CircularOut;
+
+		FMontageBlendSettings MontageBlendSettings(AlphaBlendArgs);
+
+		AnimInstance->Montage_StopWithBlendSettings(MontageBlendSettings, AnimMontage);
+		//AnimInstance->Montage_Stop(BlendOutTime, AnimMontage);
+		UE_LOG(GP_AICharacterLog, Display, TEXT("BlendOutTime = %f for Section %s"), BlendOutTime, *InSectionName.ToString());
+	}
+}
+
+float AGP_AICharacter::GetMontageSectionLength(UAnimMontage* AnimMontage, FName InSectionName)
+{
+	if (AnimMontage && AnimMontage->IsValidSectionName(InSectionName))
+	{
+		const int32 SectionIndex = AnimMontage->GetSectionIndex(InSectionName);
+		if (SectionIndex != INDEX_NONE)
+		{
+			return AnimMontage->GetSectionLength(SectionIndex);
+		}
+	}
+	return 0.0f;
+}
+
+void AGP_AICharacter::HandleNextAnimation(FName InSectionName)
+{
+	//UE_LOG(GP_AICharacterLog, Display, TEXT("HandleNextAnimation"));
+
+	GetWorld()->GetTimerManager().ClearTimer(AnimationTimerHandle);
+	if (AttackAnimMontage)
+	{
+		UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+		if (AnimInstance)
+		{
+			AnimInstance->Montage_JumpToSection(InSectionName, AttackAnimMontage);
+		}
 	}
 }

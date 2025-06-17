@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<objects serializationModel="Studio.02.03.00">
+	<object class="EncodableAsset" id="{f7f9c114-feb5-4470-a286-aefd78c6ea75}">
+		<property name="color">
+			<value>Blue Light 1</value>
+		</property>
+		<property name="assetPath">
+			<value>Player/Footsteps/Wood/</value>
+		</property>
+		<relationship name="masterAssetFolder">
+			<destination>{1424d0e2-5ab2-4326-8cd3-d3e5779d662b}</destination>
+		</relationship>
+	</object>
+</objects>

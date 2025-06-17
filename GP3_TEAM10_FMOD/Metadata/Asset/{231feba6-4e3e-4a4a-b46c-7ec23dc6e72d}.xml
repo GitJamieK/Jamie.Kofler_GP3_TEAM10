@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<objects serializationModel="Studio.02.03.00">
+	<object class="EncodableAsset" id="{231feba6-4e3e-4a4a-b46c-7ec23dc6e72d}">
+		<property name="color">
+			<value>Red Light 2</value>
+		</property>
+		<property name="assetPath">
+			<value>Enemies/ZombieCrawler/Footsteps/</value>
+		</property>
+		<relationship name="masterAssetFolder">
+			<destination>{1424d0e2-5ab2-4326-8cd3-d3e5779d662b}</destination>
+		</relationship>
+	</object>
+</objects>

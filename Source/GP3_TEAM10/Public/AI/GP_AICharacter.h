@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "GenericTeamAgentInterface.h"
 #include "GP_AICharacter.generated.h"
 
 class UBehaviorTree;
@@ -14,6 +15,7 @@ class AGP_PatrolRoute;
 
 DECLARE_MULTICAST_DELEGATE(FOnFinishedAttackSignature);
 DECLARE_MULTICAST_DELEGATE(FOnFinishedAwakeSignature);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnQTEStartedSignature);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnQTEFinishedSignature, bool, bSuccess);
 
 UENUM(BlueprintType)
@@ -29,7 +31,7 @@ enum class EAIAnimState : uint8
 };
 
 UCLASS()
-class GP3_TEAM10_API AGP_AICharacter : public ACharacter
+class GP3_TEAM10_API AGP_AICharacter : public ACharacter, public IGenericTeamAgentInterface
 {
 	GENERATED_BODY()
 
@@ -59,10 +61,38 @@ protected:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "AI|Attack", meta = (ClampMin = "0", ClampMax = "1000.0"))
 	float DamageAmount;
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AI|Behavior", meta = (ClampMin = "0", ClampMax = "100.0"))
+	float GrabProbability = 30.f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "AI|Behavior", meta = (ClampMin = "0", ClampMax = "10000.0"))
+	float PushingForce = 5000.f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "AI|Behavior", meta = (ClampMin = "0", ClampMax = "1000.0"))
+	float DealtDamageAfterQTE = 35.f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "AI|HitImpactShader")
+	float HitImpactShaderFadeDuration = 0.5f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "AI|HitImpactShader", meta = (ClampMin = "0.01", ClampMax = "1.0"))
+	float HitImpactShaderFadeRateTime = 0.05f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "AI|HitImpactShader")
+	int32 MaxHitForCumulativeImpactShader = 1;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "AI|HitImpactShader", meta = (ClampMin = "0.4", ClampMax = "2.0"))
+	float ThresholdForCumulativeImpactShader = 0.55f;
+
+	UPROPERTY(VisibleAnywhere, Category = "AI|GenericTeamId")
+	FGenericTeamId TeamID = 0;
+
+	UPROPERTY()
+	UMaterialInstanceDynamic* OverlayMaterialInstance = nullptr;
+
 public:
 
 	FOnFinishedAttackSignature OnFinishedAttack;
 	FOnFinishedAwakeSignature OnFinishedAwake;
+	FOnQTEStartedSignature OnQTEStarted;
 
 	UPROPERTY(BlueprintAssignable)
 	FOnQTEFinishedSignature OnQTEFinished;
@@ -73,9 +103,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "AI|Behavior")
 	void FinishQTE();
 
-	/*UFUNCTION(BlueprintCallable, Category = "AI|Behavior")
-	void OnQTEButtonPressed();*/
-
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "AI|BehaviorTree")
 	TObjectPtr<UBehaviorTree> BehaviorTree;
 
@@ -84,6 +111,9 @@ public:
 
 	UPROPERTY(EditDefaultsOnly, Category = "AI|Behavior")
 	EAIAnimState StartAnimState = EAIAnimState::Sleep;
+
+	UFUNCTION(BlueprintCallable, Category = "AI|Behavior")
+	bool CanAwake() const { return bCanAwaken; };
 
 	UFUNCTION(BlueprintCallable, Category = "AI|Behavior")
 	bool IsAwakening() const { return bIsAwakening; };
@@ -98,6 +128,15 @@ public:
 	float GetDamage() const { return DamageAmount; };
 
 	UFUNCTION(BlueprintCallable, Category = "AI|Behavior")
+	float GetGrabProbability() const { return GrabProbability; };
+
+	UFUNCTION(BlueprintCallable, Category = "AI|Behavior")
+	float GetPushingForce() const { return PushingForce; };
+
+	UFUNCTION(BlueprintCallable, Category = "AI|Behavior")
+	float GetDealtDamageAfterQTE() const { return DealtDamageAfterQTE; };
+
+	UFUNCTION(BlueprintCallable, Category = "AI|Behavior")
 	void SetIsDamageDone(bool IsDamageDone) { bIsDamageDone = IsDamageDone; };
 
 	UFUNCTION(BlueprintCallable, Category = "AI|Behavior")
@@ -105,6 +144,12 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "AI|Behavior")
 	void SetCurrentAnimState(EAIAnimState NextAnimState);
+
+	UFUNCTION(BlueprintCallable, Category = "Generic Team Id")
+	virtual void SetGenericTeamId(const FGenericTeamId& NewTeamID) override { TeamID = NewTeamID; };
+
+	UFUNCTION(BlueprintCallable, Category = "Generic Team Id")
+	virtual FGenericTeamId GetGenericTeamId() const override { return TeamID; }
 
 	virtual void Tick(float DeltaTime) override;
 
@@ -121,15 +166,19 @@ private:
 	bool bQTEActive = false;
 	AActor* QTETarget = nullptr;
 
-
-	UPROPERTY(EditDefaultsOnly, Category = "QTE")
-	float QTEAttackRateTime = 3.0f;
+	UPROPERTY(EditDefaultsOnly, Category = "AI|QTE")
+	float QTEAttackRateTime = 1.0f;
 
 	bool bIsDamageDone = false;
 
 	FTimerHandle AttackTimerHandle;
+	FTimerHandle AnimationTimerHandle;
+	FTimerHandle HitImpactShaderTimerHandle;
 
 	UPROPERTY(EditDefaultsOnly, Category = "AI|Behavior")
+	bool bCanAwaken = false;
+
+	UPROPERTY(VisibleAnywhere, Category = "AI|Behavior")
 	bool bIsAwakening = false;
 
 	EAIAnimState CurrentAnimState = EAIAnimState::None;
@@ -140,5 +189,27 @@ private:
 	UFUNCTION()
 	void HandleDeath();
 
+	UFUNCTION()
+	void HandleDamage(float Damage, const UDamageType* DamageType, AController* InstigatedBy);
+
 	void HandleQTEAttack();
+
+	UFUNCTION()
+	void HandleAnimBlendOut(UAnimMontage* AnimMontage, FName InSectionName, float BlendOutStartTime);
+
+	float GetMontageSectionLength(UAnimMontage* AnimMontage, FName InSectionName);
+
+	UFUNCTION()
+	void HandleNextAnimation(FName InSectionName);
+
+	UFUNCTION()
+	void StartImpactShaderFade(UMaterialInstanceDynamic* Material);
+
+	UFUNCTION()
+	void UpdateImpactShaderFade(UMaterialInstanceDynamic* Material, float StepAmount, float CurrentIntensityImpactShader);
+
+	size_t CurrentImpactShaderStep = 0;
+	int32 HitCount = 0;
+	int32 PreviousType = -1;
+	float ElapsedTimeBetweenHit = 0.0f;
 };

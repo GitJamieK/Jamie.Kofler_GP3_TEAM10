@@ -8,7 +8,7 @@
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnHealthChangedSignature, float, Health, float, Delta);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnDeathSignature);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnDamageSignature);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnDamageSignature, float, Damage, const UDamageType*, DamageType, AController*, InstigatedBy);
 
 UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
 class GP3_TEAM10_API UGP_HealthComponent : public UActorComponent
@@ -43,10 +43,22 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Health")
 	bool IsHealthFull() const;
 
+	UFUNCTION(BlueprintCallable, Category = "Health")
+	bool IsImmortal() const { return CanBeImmortal; }
+
+	UFUNCTION(BlueprintCallable, Category = "Health")
+	void SetIsImmortal(bool isTrue);
+
 protected:
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Health", meta = (ClampMin = "0", ClampMax = "1000.0"))
 	float MaxHealth = 100.f;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Health", meta = (ClampMin = "0", ClampMax = "1000.0"))
+	float StartCurrentHealth = 100.f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Health|Immortality")
+	bool CanBeImmortal = false;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadWrite, Category = "Heal", meta = (ToolTip = "Just for testing"))
 	bool AutoHeal = false;
@@ -67,13 +79,18 @@ private:
 	FTimerHandle HealTimerHandle;
 
 	float CurrentHealth = 0.0f;
+	bool bDamageHandled = false;
 
 	UFUNCTION(BlueprintCallable)
 	void OnTakeAnyDamage(AActor* DamagedActor, float Damage, const class UDamageType* DamageType, class AController* InstigatedBy, AActor* DamageCauser);
+
+	UFUNCTION(BlueprintCallable)
+	void OnTakePointDamage(AActor* DamagedActor, float Damage, class AController* InstigatedBy, FVector HitLocation, class UPrimitiveComponent* FHitComponent, FName BoneName, FVector ShotFromDirection, const class UDamageType* DamageType, AActor* DamageCauser);
 
 	void HealUpdate();
 
 	UFUNCTION(BlueprintCallable)
 	void SetHealth(float NewHealth);
-		
+
+	void HandleDamage(float Damage, const UDamageType* DamageType, AController* InstigatedBy, AActor* DamageCauser);
 };

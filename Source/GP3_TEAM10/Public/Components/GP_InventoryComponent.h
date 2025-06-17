@@ -45,6 +45,12 @@ public:
 		else return false;
 	};
 
+	UFUNCTION(BlueprintCallable)
+	void SetInventory(TMap<EItemType, int32> NewInventory)
+	{
+		Inventory = NewInventory;
+	};
+
 	DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnInventoryChanged);
 	UPROPERTY(BlueprintAssignable)
 	FOnInventoryChanged OnInventoryChanged;

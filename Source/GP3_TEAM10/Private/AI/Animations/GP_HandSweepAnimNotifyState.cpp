@@ -36,11 +36,11 @@ void UGP_HandSweepAnimNotifyState::NotifyTick(USkeletalMeshComponent* MeshComp, 
 		Params
 	);
 
-#if WITH_EDITOR
-	DrawDebugSphere(MeshComp->GetWorld(), PreviousHandLocation, Radius, 12, FColor::Blue, false, 0.2f);
-	DrawDebugSphere(MeshComp->GetWorld(), CurrentLocation, Radius, 12, FColor::Red, false, 0.2f);
-	DrawDebugLine(MeshComp->GetWorld(), PreviousHandLocation, CurrentLocation, FColor::Green, false, 0.2f);
-#endif
+//#if WITH_EDITOR
+//	DrawDebugSphere(MeshComp->GetWorld(), PreviousHandLocation, Radius, 12, FColor::Blue, false, 0.2f);
+//	DrawDebugSphere(MeshComp->GetWorld(), CurrentLocation, Radius, 12, FColor::Red, false, 0.2f);
+//	DrawDebugLine(MeshComp->GetWorld(), PreviousHandLocation, CurrentLocation, FColor::Green, false, 0.2f);
+//#endif
 
 	if (bHit)
 	{

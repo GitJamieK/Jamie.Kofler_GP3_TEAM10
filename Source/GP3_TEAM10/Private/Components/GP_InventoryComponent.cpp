@@ -12,7 +12,13 @@ UGP_InventoryComponent::UGP_InventoryComponent()
 	PrimaryComponentTick.bCanEverTick = false;
 
 	Inventory.Add(EItemType::HealthPack, 0);
-	Inventory.Add(EItemType::Key, 0);
+	
+	Inventory.Add(EItemType::KeyTEMP, 0); // can be removed
+
+	Inventory.Add(EItemType::key1, 0);
+	Inventory.Add(EItemType::key2, 0);
+	Inventory.Add(EItemType::key3, 0);
+	
 	Inventory.Add(EItemType::HandgunAmmo, 0);
 	Inventory.Add(EItemType::ShotgunAmmo, 0);
 }
@@ -26,7 +32,7 @@ void UGP_InventoryComponent::BeginPlay()
 
 void UGP_InventoryComponent::AddItem(EItemType ItemType, int32 Amount, int32 MaxAmount)
 {
-	if (ItemType == EItemType::None || Amount <= 0) return;
+	if (ItemType == EItemType::None) return;
 
 	int32& Count = Inventory.FindOrAdd(ItemType);
 	Count += Amount;

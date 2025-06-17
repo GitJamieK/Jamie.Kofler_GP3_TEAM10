@@ -29,46 +29,77 @@ bool UGP_HealthComponent::IsHealthFull() const
 	return FMath::IsNearlyEqual(CurrentHealth, MaxHealth);
 }
 
+void UGP_HealthComponent::SetIsImmortal(bool isTrue)
+{
+	UE_LOG(HealthComponentLog, Display, TEXT("CanBeImmortal = %s"), isTrue ? TEXT("TRUE") : TEXT("FALSE"));
+	CanBeImmortal = isTrue;
+}
+
 void UGP_HealthComponent::BeginPlay()
 {
 	Super::BeginPlay();
 
 	check(MaxHealth > 0);
+	check(StartCurrentHealth > 0);
 
-	SetHealth(MaxHealth);
+	SetHealth(StartCurrentHealth);
 
 	AActor* ComponentOwner = GetOwner();
 	if (ComponentOwner)
 	{
 		UE_LOG(HealthComponentLog, Display, TEXT("Owner %s"), *ComponentOwner->GetName());
 		ComponentOwner->OnTakeAnyDamage.AddDynamic(this, &UGP_HealthComponent::OnTakeAnyDamage);
+		ComponentOwner->OnTakePointDamage.AddDynamic(this, &UGP_HealthComponent::OnTakePointDamage);
 	}
 }
 
 void UGP_HealthComponent::OnTakeAnyDamage(AActor* DamagedActor, float Damage, const UDamageType* DamageType, AController* InstigatedBy, AActor* DamageCauser)
 {
 	UE_LOG(HealthComponentLog, Display, TEXT("OnTakeAnyDamage"));
-	if (Damage <= 0.f || IsDead() || !GetWorld() || !DamagedActor)
+
+	if (bDamageHandled)
 	{
-		UE_LOG(HealthComponentLog, Display, TEXT("(Damage <= 0 || IsDead() || !GetWorld() || !DamagedActor"));
+		bDamageHandled = false;
 		return;
 	}
 
-	OnDamage.Broadcast(); // for change animation or stop some interaction
+	HandleDamage(Damage, DamageType, InstigatedBy, DamageCauser);
+	//if (Damage <= 0.f || IsDead() || !GetWorld() || !DamagedActor)
+	//{
+	//	UE_LOG(HealthComponentLog, Display, TEXT("(Damage <= 0 || IsDead() || !GetWorld() || !DamagedActor"));
+	//	return;
+	//}
 
-	UE_LOG(HealthComponentLog, Display, TEXT("Damage: %f"), Damage);
-	SetHealth(CurrentHealth - Damage);
+	//OnDamage.Broadcast(Damage, DamageType, InstigatedBy); // for change animation or stop some interaction
 
-	GetWorld()->GetTimerManager().ClearTimer(HealTimerHandle); // autoheal - for test
+	//UE_LOG(HealthComponentLog, Display, TEXT("Damage: %f"), Damage);
+	//SetHealth(CurrentHealth - Damage);
 
-	if (IsDead())
+	//GetWorld()->GetTimerManager().ClearTimer(HealTimerHandle); // autoheal - for test
+
+	//if (IsDead())
+	//{
+	//	OnDeath.Broadcast();
+	//}
+	//else if (AutoHeal)  // autoheal - for test
+	//{
+	//	GetWorld()->GetTimerManager().SetTimer(HealTimerHandle, this, &UGP_HealthComponent::HealUpdate, HealUpdateTime, true, HealDelay);
+	//}
+}
+
+void UGP_HealthComponent::OnTakePointDamage(AActor* DamagedActor, float Damage, AController* InstigatedBy, FVector HitLocation, UPrimitiveComponent* FHitComponent, FName BoneName, FVector ShotFromDirection, const UDamageType* DamageType, AActor* DamageCauser)
+{
+	UE_LOG(HealthComponentLog, Display, TEXT("OnTakePointDamage: %s"), *BoneName.ToString());
+
+	/*bool bIsHeadshot = BoneName == "Bip01-Head";
+	if (bIsHeadshot)
 	{
-		OnDeath.Broadcast();
-	}
-	else if (AutoHeal)  // autoheal - for test
-	{
-		GetWorld()->GetTimerManager().SetTimer(HealTimerHandle, this, &UGP_HealthComponent::HealUpdate, HealUpdateTime, true, HealDelay);
-	}
+		Damage = MAX_FLT;
+		UE_LOG(HealthComponentLog, Display, TEXT("OnTakePointDamage: Headshot!"));
+	}*/
+
+	bDamageHandled = true;
+	HandleDamage(Damage, DamageType, InstigatedBy, DamageCauser);
 }
 
 void UGP_HealthComponent::HealUpdate()  // autoheal - for test
@@ -90,5 +121,33 @@ void UGP_HealthComponent::SetHealth(float NewHealth)
 
 	CurrentHealth = NextHealth;
 	OnHealthChanged.Broadcast(CurrentHealth, HealthDelta);
+}
+
+void UGP_HealthComponent::HandleDamage(float Damage, const UDamageType* DamageType, AController* InstigatedBy, AActor* DamageCauser)
+{
+	if (Damage <= 0.f || IsDead() || !GetWorld())
+	{
+		UE_LOG(HealthComponentLog, Display, TEXT("(Damage <= 0 || IsDead() || !GetWorld()"));
+		return;
+	}
+
+	OnDamage.Broadcast(Damage, DamageType, InstigatedBy); // for change animation or stop some interaction
+
+	if (!CanBeImmortal)
+	{
+		UE_LOG(HealthComponentLog, Display, TEXT("Damage: %f"), Damage);
+		SetHealth(CurrentHealth - Damage);
+	}
+
+	GetWorld()->GetTimerManager().ClearTimer(HealTimerHandle); // autoheal - for test
+
+	if (IsDead())
+	{
+		OnDeath.Broadcast();
+	}
+	else if (AutoHeal)  // autoheal - for test
+	{
+		GetWorld()->GetTimerManager().SetTimer(HealTimerHandle, this, &UGP_HealthComponent::HealUpdate, HealUpdateTime, true, HealDelay);
+	}
 }
 

@@ -4,6 +4,7 @@
 #include "AI/Tasks/GP_AwakeTask.h"
 #include "AIController.h"
 #include "AI/GP_AICharacter.h"
+#include "Components/GP_HealthComponent.h"
 
 DEFINE_LOG_CATEGORY_STATIC(GP_AwakeTaskLog, All, All);
 
@@ -15,35 +16,104 @@ UGP_AwakeTask::UGP_AwakeTask()
 EBTNodeResult::Type UGP_AwakeTask::ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
 {
 	const auto Controller = OwnerComp.GetAIOwner();
-	const auto Owner = Cast<AGP_AICharacter>(Controller->GetPawn());
-
-	if (!Controller || !Owner)
+	if (!Controller)
 	{
-		//UE_LOG(GP_AwakeTaskLog, Display, TEXT("!Controller || !Owner : %s"), *Owner->GetName());
+		return EBTNodeResult::Failed;
+	}
+
+	const auto Owner = Cast<AGP_AICharacter>(Controller->GetPawn());
+	if (!Owner)
+	{
 		return EBTNodeResult::Failed;
 	}
 
 	UE_LOG(GP_AwakeTaskLog, Display, TEXT("AwakeTask"));
+	Owner->SetIsAwakening(true);
 	Owner->SetCurrentAnimState(EAIAnimState::StandUp);
-	//return EBTNodeResult::Succeeded;
 
-	FAwakeTaskMemory* MyMemory = reinterpret_cast<FAwakeTaskMemory*>(NodeMemory);
+	/*FAwakeTaskMemory* MyMemory = reinterpret_cast<FAwakeTaskMemory*>(NodeMemory);
 	MyMemory->OwnerComp = &OwnerComp;
-	MyMemory->NodeMemory = NodeMemory;
+	MyMemory->NodeMemory = NodeMemory;*/
 
-	Owner->OnFinishedAwake.AddLambda(
+	/*Owner->OnFinishedAwake.AddLambda(
 		[this, MyMemory]()
 		{
+			if (!MyMemory || !MyMemory->OwnerComp || !MyMemory->OwnerComp->GetAIOwner()) return;
 			UE_LOG(GP_AwakeTaskLog, Display, TEXT("Finish Awake"));
 
 			AAIController* Controller = MyMemory->OwnerComp->GetAIOwner();
 			AGP_AICharacter* Owner = Cast<AGP_AICharacter>(Controller->GetPawn());
+			if (!Owner)
+			{
+				FinishLatentTask(*MyMemory->OwnerComp, EBTNodeResult::Failed);
+				return;
+			}
+
+			UGP_HealthComponent* Health = Owner->GetComponentByClass<UGP_HealthComponent>();
+			if (!Health)
+			{
+				FinishLatentTask(*MyMemory->OwnerComp, EBTNodeResult::Failed);
+				return;
+			}
+			if(Health->IsDead())
+			{
+				FinishLatentTask(*MyMemory->OwnerComp, EBTNodeResult::Failed);
+				return;
+			}
 
 			Owner->SetIsAwakening(false);
 			Owner->SetCurrentAnimState(EAIAnimState::Idle);
 			FinishLatentTask(*MyMemory->OwnerComp, EBTNodeResult::Succeeded);
 		}
+	);*/
+
+
+	UBehaviorTreeComponent* CapturedComp = &OwnerComp;
+
+	Owner->OnFinishedAwake.AddLambda(
+		[this, CapturedComp]()
+		{
+			if (!CapturedComp) return;
+			UE_LOG(GP_AwakeTaskLog, Display, TEXT("Finish Awake"));
+
+			AAIController* Controller = CapturedComp->GetAIOwner();
+			AGP_AICharacter* Owner = Cast<AGP_AICharacter>(Controller->GetPawn());
+			if (!Owner)
+			{
+				FinishLatentTask(*CapturedComp, EBTNodeResult::Failed);
+				return;
+			}
+
+			UGP_HealthComponent* Health = Owner->GetComponentByClass<UGP_HealthComponent>();
+			if (!Health)
+			{
+				FinishLatentTask(*CapturedComp, EBTNodeResult::Failed);
+				return;
+			}
+			if (Health->IsDead())
+			{
+				FinishLatentTask(*CapturedComp, EBTNodeResult::Failed);
+				return;
+			}
+
+			Owner->SetIsAwakening(false);
+			Owner->SetCurrentAnimState(EAIAnimState::Idle);
+			FinishLatentTask(*CapturedComp, EBTNodeResult::Succeeded);
+		}
 	);
 
 	return EBTNodeResult::InProgress;
+}
+
+EBTNodeResult::Type UGP_AwakeTask::AbortTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
+{
+	AAIController* Controller = OwnerComp.GetAIOwner();
+	if (Controller)
+	{
+		if (auto* Owner = Cast<AGP_AICharacter>(Controller->GetPawn()))
+		{
+			Owner->OnFinishedAwake.RemoveAll(this);
+		}
+	}
+	return Super::AbortTask(OwnerComp, NodeMemory);
 }

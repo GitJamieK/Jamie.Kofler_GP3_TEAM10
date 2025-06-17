@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<objects serializationModel="Studio.02.03.00">
+	<object class="AudioFile" id="{f0ef28a4-d0e1-4fbb-9252-0e6b302c387b}">
+		<property name="assetPath">
+			<value>Ambience/Dungeon/DoorKnock.wav</value>
+		</property>
+		<property name="isStreaming">
+			<value>true</value>
+		</property>
+		<property name="frequencyInKHz">
+			<value>44.0999985</value>
+		</property>
+		<property name="channelCount">
+			<value>2</value>
+		</property>
+		<property name="length">
+			<value>15.81952380952381</value>
+		</property>
+		<relationship name="masterAssetFolder">
+			<destination>{1424d0e2-5ab2-4326-8cd3-d3e5779d662b}</destination>
+		</relationship>
+	</object>
+</objects>

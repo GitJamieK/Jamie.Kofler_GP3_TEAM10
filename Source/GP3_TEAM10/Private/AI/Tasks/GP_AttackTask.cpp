@@ -5,6 +5,7 @@
 #include "BehaviorTree/BlackboardComponent.h"
 #include "AIController.h"
 #include "AI/GP_AICharacter.h"
+#include "Core/GP_AttackTokenSubsystem.h"
 
 DEFINE_LOG_CATEGORY_STATIC(GP_AttackTaskLog, All, All);
 
@@ -17,11 +18,17 @@ EBTNodeResult::Type UGP_AttackTask::ExecuteTask(UBehaviorTreeComponent& OwnerCom
 {
 	const auto Controller = OwnerComp.GetAIOwner();
 	const auto Blackboard = OwnerComp.GetBlackboardComponent();
-	const auto Owner = Cast<AGP_AICharacter>(Controller->GetPawn());
 
-	if (!Controller || !Blackboard || !Owner)
+	if (!Controller || !Blackboard)
 	{
-		UE_LOG(GP_AttackTaskLog, Display, TEXT("!Controller || !Blackboard || !Owner : %s"), *Owner->GetName());
+		UE_LOG(GP_AttackTaskLog, Display, TEXT("!Controller || !Blackboard"));
+		return EBTNodeResult::Failed;
+	}
+
+	const auto Owner = Cast<AGP_AICharacter>(Controller->GetPawn());
+	if (!Owner)
+	{
+		UE_LOG(GP_AttackTaskLog, Display, TEXT("!Owner"));
 		return EBTNodeResult::Failed;
 	}
 
@@ -30,30 +37,109 @@ EBTNodeResult::Type UGP_AttackTask::ExecuteTask(UBehaviorTreeComponent& OwnerCom
 	{
 		UE_LOG(GP_AttackTaskLog, Display, TEXT("HasTarget"));
 
-		Blackboard->SetValueAsBool(IsAttackingKey.SelectedKeyName, true);
-		Owner->Attack();
-		UE_LOG(GP_AttackTaskLog, Display, TEXT("Attack: Controller = %s, IsAttackingKey = %s"), *Controller->GetName(), Blackboard->GetValueAsBool(IsAttackingKey.SelectedKeyName) ? TEXT("TRUE") : TEXT("FALSE"));
 
-		FAttackTaskMemory* MyMemory = reinterpret_cast<FAttackTaskMemory*>(NodeMemory);
-		MyMemory->OwnerComp = &OwnerComp;
-		MyMemory->NodeMemory = NodeMemory;
+		UGP_AttackTokenSubsystem* AttackTokenSubsystem = GetWorld()->GetSubsystem<UGP_AttackTokenSubsystem>();
+		if (!AttackTokenSubsystem)
+		{
+			UE_LOG(GP_AttackTaskLog, Error, TEXT("No AttackTokenSubsystem in world"));
+			return EBTNodeResult::Failed;
+		}
 
-		Owner->OnFinishedAttack.AddLambda(
-			[this, MyMemory]()
+		if (AttackTokenSubsystem->RequestToken(Controller, 1))
+		{
+			Blackboard->SetValueAsBool(IsAttackingKey.SelectedKeyName, true);
+			Owner->Attack();
+			UE_LOG(GP_AttackTaskLog, Display, TEXT("Attack: Controller = %s, IsAttackingKey = %s"), *Controller->GetName(), Blackboard->GetValueAsBool(IsAttackingKey.SelectedKeyName) ? TEXT("TRUE") : TEXT("FALSE"));
+
+			/*FAttackTaskMemory* MyMemory = reinterpret_cast<FAttackTaskMemory*>(NodeMemory);
+			MyMemory->OwnerComp = &OwnerComp;
+			MyMemory->NodeMemory = NodeMemory;*/
+
+
+			if (Owner->OnFinishedAttack.IsBound())
 			{
-				const auto MemoryBlackboard = MyMemory->OwnerComp->GetBlackboardComponent();
-				AAIController* Controller = MyMemory->OwnerComp->GetAIOwner();
-
-				AGP_AICharacter* Owner = Cast<AGP_AICharacter>(Controller->GetPawn());
-				Owner->SetCurrentAnimState(EAIAnimState::Idle);
-
-				MemoryBlackboard->SetValueAsBool(IsAttackingKey.SelectedKeyName, false);
-
-				UE_LOG(GP_AttackTaskLog, Display, TEXT("Finish Attack: Controller = %s, IsAttackingKey = %s"), *Controller->GetName(), MemoryBlackboard->GetValueAsBool(IsAttackingKey.SelectedKeyName) ? TEXT("TRUE") : TEXT("FALSE"));
-
-				FinishLatentTask(*MyMemory->OwnerComp, EBTNodeResult::Succeeded);
+				Owner->OnFinishedAttack.Clear();
 			}
-		);
+
+			/*Owner->OnFinishedAttack.AddLambda(
+				[this, MyMemory]()
+				{
+					if (!MyMemory || !MyMemory->OwnerComp || !MyMemory->OwnerComp->GetAIOwner()) return;
+					const auto MemoryBlackboard = MyMemory->OwnerComp->GetBlackboardComponent();
+					if (!MemoryBlackboard)
+					{
+						FinishLatentTask(*MyMemory->OwnerComp, EBTNodeResult::Failed);
+						return;
+					}
+					AAIController* Controller = MyMemory->OwnerComp->GetAIOwner();
+					if (!Controller)
+					{
+						FinishLatentTask(*MyMemory->OwnerComp, EBTNodeResult::Failed);
+						return;
+					}
+
+					UGP_AttackTokenSubsystem* AttackTokenSubsystem = GetWorld()->GetSubsystem<UGP_AttackTokenSubsystem>();
+					if (!AttackTokenSubsystem)
+					{
+						FinishLatentTask(*MyMemory->OwnerComp, EBTNodeResult::Failed);
+						return;
+					}
+
+					AttackTokenSubsystem->ReleaseToken(Controller, 1);
+
+					AGP_AICharacter* Owner = Cast<AGP_AICharacter>(Controller->GetPawn());
+					Owner->SetCurrentAnimState(EAIAnimState::Idle);
+
+					MemoryBlackboard->SetValueAsBool(IsAttackingKey.SelectedKeyName, false);
+
+					UE_LOG(GP_AttackTaskLog, Display, TEXT("Finish Attack: Controller = %s, IsAttackingKey = %s"), *Controller->GetName(), MemoryBlackboard->GetValueAsBool(IsAttackingKey.SelectedKeyName) ? TEXT("TRUE") : TEXT("FALSE"));
+
+					FinishLatentTask(*MyMemory->OwnerComp, EBTNodeResult::Succeeded);
+					return;
+				}
+			);*/
+
+			UBehaviorTreeComponent* CapturedComp = &OwnerComp;
+			AAIController* CapturedController = Controller;
+
+			Owner->OnFinishedAttack.AddLambda(
+				[this, CapturedComp, CapturedController]()
+				{
+					if (!CapturedComp || !CapturedController) return;
+					const auto MemoryBlackboard = CapturedComp->GetBlackboardComponent();
+					if (!MemoryBlackboard)
+					{
+						FinishLatentTask(*CapturedComp, EBTNodeResult::Failed);
+						return;
+					}
+
+					UGP_AttackTokenSubsystem* AttackTokenSubsystem = GetWorld()->GetSubsystem<UGP_AttackTokenSubsystem>();
+					if (!AttackTokenSubsystem)
+					{
+						FinishLatentTask(*CapturedComp, EBTNodeResult::Failed);
+						return;
+					}
+
+					AttackTokenSubsystem->ReleaseToken(CapturedController, 1);
+
+					AGP_AICharacter* Owner = Cast<AGP_AICharacter>(CapturedController->GetPawn());
+					Owner->SetCurrentAnimState(EAIAnimState::Idle);
+
+					MemoryBlackboard->SetValueAsBool(IsAttackingKey.SelectedKeyName, false);
+
+					UE_LOG(GP_AttackTaskLog, Display, TEXT("Finish Attack: Controller = %s, IsAttackingKey = %s"), *CapturedController->GetName(), MemoryBlackboard->GetValueAsBool(IsAttackingKey.SelectedKeyName) ? TEXT("TRUE") : TEXT("FALSE"));
+
+					FinishLatentTask(*CapturedComp, EBTNodeResult::Succeeded);
+					return;
+				}
+			);
+		}
+		else
+		{
+			UE_LOG(GP_AttackTaskLog, Error, TEXT("Request Token is denied for %s"), *Owner->GetName());
+			return EBTNodeResult::Failed;
+		}
+		
 	}
 	else
 	{
@@ -62,4 +148,21 @@ EBTNodeResult::Type UGP_AttackTask::ExecuteTask(UBehaviorTreeComponent& OwnerCom
 	}
 
 	return EBTNodeResult::InProgress;
+}
+
+EBTNodeResult::Type UGP_AttackTask::AbortTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
+{
+	AAIController* Controller = OwnerComp.GetAIOwner();
+	if (Controller)
+	{
+		if (auto* Owner = Cast<AGP_AICharacter>(Controller->GetPawn()))
+		{
+			Owner->OnFinishedAttack.RemoveAll(this);
+			if (Controller->BrainComponent->IsPaused())
+			{
+				Controller->BrainComponent->ResumeLogic("QTE Finished");
+			}
+		}
+	}
+	return Super::AbortTask(OwnerComp, NodeMemory);
 }

@@ -6,54 +6,228 @@
 #include "AI/GP_AICharacter.h"
 #include "BehaviorTree/BlackboardComponent.h"
 #include "GameFramework/Character.h"
-#include "TimerManager.h"
 #include "Interfaces/GP_QTETargetInterface.h"
+#include "Engine/DamageEvents.h"
+#include "Components/GP_HealthComponent.h"
+#include "Core/GP_AttackTokenSubsystem.h"
 
 DEFINE_LOG_CATEGORY_STATIC(GP_CrawlerAttackTaskLog, All, All);
 
 UGP_CrawlerAttackTask::UGP_CrawlerAttackTask()
 {
     NodeName = "Crawler Attack";
-    bNotifyTick = true;
+    bNotifyTick = false;
 }
 
 EBTNodeResult::Type UGP_CrawlerAttackTask::ExecuteTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
 {
-    CachedOwnerComp = &OwnerComp;
+    //CachedOwnerComp = &OwnerComp;
+
+    /*FCrawlerAttackTaskMemory* TaskMemory = reinterpret_cast<FCrawlerAttackTaskMemory*>(NodeMemory);
+    TaskMemory->OwnerComp = &OwnerComp;
+    TaskMemory->NodeMemory = NodeMemory;
+
+    CachedTaskMemory = TaskMemory;*/
+
 
     const auto Controller = OwnerComp.GetAIOwner();
     const auto Blackboard = OwnerComp.GetBlackboardComponent();
-    const auto Crawler = Cast<AGP_AICharacter>(Controller->GetPawn());
 
-    if (!Controller || !Blackboard || !Crawler)
+    if (!Controller || !Blackboard)
     {
-        UE_LOG(GP_CrawlerAttackTaskLog, Display, TEXT("Not Valid"));
+        UE_LOG(GP_CrawlerAttackTaskLog, Display, TEXT("Controller Blackboard Not Valid"));
         return EBTNodeResult::Failed;
     }
+
+    const auto Crawler = Cast<AGP_AICharacter>(Controller->GetPawn());
+    if (!Crawler)
+    {
+        UE_LOG(GP_CrawlerAttackTaskLog, Display, TEXT("Crawler Not Valid"));
+        return EBTNodeResult::Failed;
+    }
+
+    UBehaviorTreeComponent* CapturedComp = &OwnerComp;
+    CapturedComponent = CapturedComp;
+    AAIController* CapturedController = Controller;
 
     AActor* Player = Cast<AActor>(Blackboard->GetValueAsObject(TargetActorKey.SelectedKeyName));
 
-    if (!Player)
+    /*if (!Player)
     {
         UE_LOG(GP_CrawlerAttackTaskLog, Display, TEXT("Target actor is notvalid"));
         return EBTNodeResult::Failed;
-    }
+    }*/
 
     if (Player && Player->GetClass()->ImplementsInterface(UGP_QTETargetInterface::StaticClass()))
     {
-        //FVector JumpTarget = Player->GetActorLocation() + FVector(0, 0, 100);
-        //FVector Direction = (JumpTarget - Crawler->GetActorLocation()).GetSafeNormal();
-        //Crawler->LaunchCharacter(Direction * 600 + FVector(0, 0, 400), true, true);
+        if (!Crawler->OnQTEFinished.IsAlreadyBound(this, &UGP_CrawlerAttackTask::OnQTEComplete))
+        {
+            Crawler->OnQTEFinished.AddDynamic(this, &UGP_CrawlerAttackTask::OnQTEComplete);
+        }
 
-        const FTransform AttackPoint = IGP_QTETargetInterface::Execute_GetAttackPoint(Player);
-        //Crawler->SetActorTransform(AttackPoint);
-        //Crawler->SetActorLocation(AttackPoint.GetLocation());
-        Crawler->OnQTEFinished.AddDynamic(this, &UGP_CrawlerAttackTask::OnQTEComplete);
-        Crawler->StartQTE(Player);
+        UGP_AttackTokenSubsystem* AttackTokenSubsystem = GetWorld()->GetSubsystem<UGP_AttackTokenSubsystem>();
+        if (!AttackTokenSubsystem)
+        {
+            UE_LOG(GP_CrawlerAttackTaskLog, Error, TEXT("No AttackTokenSubsystem in world"));
+            return EBTNodeResult::Failed;
+        }
 
-        IGP_QTETargetInterface::Execute_StartQTE(Player, Crawler);
+        if (AttackTokenSubsystem->RequestToken(Controller, 1))
+        {
+            Blackboard->SetValueAsBool(IsAttackingKey.SelectedKeyName, true);
+            Crawler->StartQTE(Player);
 
-        Controller->BrainComponent->PauseLogic("QTE In Progress");
+            UE_LOG(GP_CrawlerAttackTaskLog, Display, TEXT("Player : %s | Crawler : %s"), *Player->GetName(), *Crawler->GetName());
+            IGP_QTETargetInterface::Execute_StartQTE(Player, Crawler);
+
+            Controller->BrainComponent->PauseLogic("QTE In Progress");
+
+            if (Crawler->OnFinishedAttack.IsBound())
+            {
+                Crawler->OnFinishedAttack.Clear();
+            }
+            /*Crawler->OnFinishedAttack.AddLambda(
+                [this, TaskMemory]()
+                {
+                    if (!bQTECompleted) return;
+                    if (!TaskMemory || !TaskMemory->OwnerComp) return;
+
+                    const auto MemoryBlackboard = TaskMemory->OwnerComp->GetBlackboardComponent();
+                    if (!MemoryBlackboard)
+                    {
+                        FinishLatentTask(*TaskMemory->OwnerComp, EBTNodeResult::Failed);
+                        return;
+                    }
+                    AAIController* Controller = TaskMemory->OwnerComp->GetAIOwner();
+                    if (!Controller)
+                    {
+                        FinishLatentTask(*TaskMemory->OwnerComp, EBTNodeResult::Failed);
+                        return;
+                    }
+
+                    UGP_AttackTokenSubsystem* AttackTokenSubsystem = GetWorld()->GetSubsystem<UGP_AttackTokenSubsystem>();
+                    if (!AttackTokenSubsystem)
+                    {
+                        FinishLatentTask(*TaskMemory->OwnerComp, EBTNodeResult::Failed);
+                        return;
+                    }
+
+                    AttackTokenSubsystem->ReleaseToken(Controller, 1);
+
+                    if (bQTECompleted)
+                    {
+                        AGP_AICharacter* Owner = Cast<AGP_AICharacter>(Controller->GetPawn());
+                        if (!Owner)
+                        {
+                            FinishLatentTask(*TaskMemory->OwnerComp, EBTNodeResult::Failed);
+                            return;
+                        }
+                        const UGP_HealthComponent* HealthComponent = Owner->GetComponentByClass<UGP_HealthComponent>();
+                        if (HealthComponent ) //&& !HealthComponent->IsDead()
+                        {
+                            if (!HealthComponent->IsDead())
+                            {
+                                Owner->SetCurrentAnimState(EAIAnimState::Idle);
+                                //Controller->BrainComponent->ResumeLogic("QTE Finished");
+                            }
+                            else
+                            {
+                                Owner->SetCurrentAnimState(EAIAnimState::Death);
+                                FinishLatentTask(*TaskMemory->OwnerComp, EBTNodeResult::Failed);
+                            }
+
+                            //Controller->BrainComponent->ResumeLogic("QTE Finished");
+                        }
+                        else
+                        {
+                            FinishLatentTask(*TaskMemory->OwnerComp, EBTNodeResult::Failed);
+                        }
+
+                        Controller->BrainComponent->ResumeLogic("QTE Finished");
+                        MemoryBlackboard->SetValueAsBool(IsAttackingKey.SelectedKeyName, false);
+                        FinishLatentTask(*TaskMemory->OwnerComp, EBTNodeResult::Succeeded);
+                    }
+                    if (Controller->BrainComponent->IsPaused())
+                    {
+                        Controller->BrainComponent->ResumeLogic("QTE Finished");
+                    }
+                }
+            );*/
+
+            Crawler->OnFinishedAttack.AddLambda(
+                [this, CapturedComp, CapturedController]()
+                {
+                    if (!bQTECompleted) return;
+                    if (!CapturedComp || !CapturedController) return;
+
+                    const auto MemoryBlackboard = CapturedComp->GetBlackboardComponent();
+                    if (!MemoryBlackboard)
+                    {
+                        FinishLatentTask(*CapturedComp, EBTNodeResult::Failed);
+                        return;
+                    }
+
+                    UGP_AttackTokenSubsystem* AttackTokenSubsystem = GetWorld()->GetSubsystem<UGP_AttackTokenSubsystem>();
+                    if (!AttackTokenSubsystem)
+                    {
+                        FinishLatentTask(*CapturedComp, EBTNodeResult::Failed);
+                        return;
+                    }
+
+                    AttackTokenSubsystem->ReleaseToken(CapturedController, 1);
+
+                    if (bQTECompleted)
+                    {
+                        AGP_AICharacter* Owner = Cast<AGP_AICharacter>(CapturedController->GetPawn());
+                        if (!Owner)
+                        {
+                            FinishLatentTask(*CapturedComp, EBTNodeResult::Failed);
+                            return;
+                        }
+                        const UGP_HealthComponent* HealthComponent = Owner->GetComponentByClass<UGP_HealthComponent>();
+                        if (HealthComponent /*&& !HealthComponent->IsDead()*/)
+                        {
+                            if (!HealthComponent->IsDead())
+                            {
+                                Owner->SetCurrentAnimState(EAIAnimState::Idle);
+                                //Controller->BrainComponent->ResumeLogic("QTE Finished");
+                            }
+                            else
+                            {
+                                Owner->SetCurrentAnimState(EAIAnimState::Death);
+                                FinishLatentTask(*CapturedComp, EBTNodeResult::Failed);
+                            }
+
+                            //Controller->BrainComponent->ResumeLogic("QTE Finished");
+                        }
+                        else
+                        {
+                            FinishLatentTask(*CapturedComp, EBTNodeResult::Failed);
+                        }
+
+                        CapturedController->BrainComponent->ResumeLogic("QTE Finished");
+                        MemoryBlackboard->SetValueAsBool(IsAttackingKey.SelectedKeyName, false);
+                        FinishLatentTask(*CapturedComp, EBTNodeResult::Succeeded);
+                        bQTECompleted = false;
+                    }
+                    if (CapturedController->BrainComponent->IsPaused())
+                    {
+                        CapturedController->BrainComponent->ResumeLogic("QTE Finished");
+                    }
+                }
+            );
+        }
+        else
+        {
+            UE_LOG(GP_CrawlerAttackTaskLog, Error, TEXT("Request Token is denied for %s"), *Crawler->GetName());
+            return EBTNodeResult::Failed;
+        }
+        
+    }
+    else
+    {
+        UE_LOG(GP_CrawlerAttackTaskLog, Display, TEXT("Target actor is notvalid"));
+        return EBTNodeResult::Failed;
     }
 
     return EBTNodeResult::InProgress;
@@ -61,42 +235,91 @@ EBTNodeResult::Type UGP_CrawlerAttackTask::ExecuteTask(UBehaviorTreeComponent& O
 
 void UGP_CrawlerAttackTask::TickTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory, float DeltaSeconds)
 {
-    if (bQTECompleted)
+    /*if (bQTECompleted)
     {
-        FinishLatentTask(*CachedOwnerComp, EBTNodeResult::Succeeded);
-    }
+        FinishLatentTask(*TaskMemory->OwnerComp, EBTNodeResult::Succeeded);
+    }*/
 }
 
 void UGP_CrawlerAttackTask::OnQTEComplete(bool bSuccess)
 {
+    if (!CapturedComponent) return;
 
-    const auto Controller = CachedOwnerComp->GetAIOwner();
-    const auto Blackboard = CachedOwnerComp->GetBlackboardComponent();
+    const auto Controller = CapturedComponent->GetAIOwner();
+    const auto Blackboard = CapturedComponent->GetBlackboardComponent();
     if (!Controller || !Blackboard) return;
 
     const auto Crawler = Cast<AGP_AICharacter>(Controller->GetPawn());
-    if (!Crawler) return;
+    if (!Crawler) // ?????????
+    {
+        FinishLatentTask(*CapturedComponent, EBTNodeResult::Failed);
+    }
 
-    Crawler->FinishQTE();
-    Crawler->OnQTEFinished.RemoveDynamic(this, &UGP_CrawlerAttackTask::OnQTEComplete);
+    /*Crawler->FinishQTE();
+    Crawler->OnQTEFinished.RemoveDynamic(this, &UGP_CrawlerAttackTask::OnQTEComplete);*/
 
     ACharacter* Player = Cast<ACharacter>(Blackboard->GetValueAsObject(TargetActorKey.SelectedKeyName));
-    if (!Player) return;
+    //if (!Player) return;
 
     UE_LOG(GP_CrawlerAttackTaskLog, Display, TEXT("OnQTEComplete"));
     if (bSuccess)
     {
-        FVector PushBack = (Crawler->GetActorLocation() - Player->GetActorLocation()).GetSafeNormal();
-        Crawler->LaunchCharacter(PushBack * 800 + FVector(0, 0, 300), true, true);
-        bQTECompleted = true;
-        Controller->BrainComponent->ResumeLogic("QTE Finished");
+        if (Crawler && Player)
+        {
+            const UGP_HealthComponent* HealthComponent = Crawler->GetComponentByClass<UGP_HealthComponent>();
+            if (HealthComponent)
+            {
+                if (!HealthComponent->IsDead())
+                {
+                    FVector PushBack = (Crawler->GetActorLocation() - Player->GetActorLocation()).GetSafeNormal();
+                    Crawler->LaunchCharacter(PushBack * Crawler->GetPushingForce(), true, true);
+
+                    Crawler->TakeDamage(Crawler->GetDealtDamageAfterQTE(), FDamageEvent{}, Player->GetController(), Player);
+                }
+            }
+        }
     }
     else
     {
         // death to player
-        bQTECompleted = true;
-        Controller->BrainComponent->ResumeLogic("QTE Finished");
+        if (Player)
+        {
+            Player->TakeDamage(MAX_FLT, FDamageEvent{}, Controller, Crawler);
+        }
     }
 
+    Blackboard->SetValueAsBool(IsAttackingKey.SelectedKeyName, false); //
+    if (Crawler)
+    {
+        if (Controller->BrainComponent->IsPaused())
+        {
+            Controller->BrainComponent->ResumeLogic("QTE Finished");
+        }
+        Crawler->FinishQTE();
+        Crawler->OnQTEFinished.RemoveDynamic(this, &UGP_CrawlerAttackTask::OnQTEComplete);
+        bQTECompleted = true;
+    }
+    else
+    {
+        FinishLatentTask(*CapturedComponent, EBTNodeResult::Failed);
+    }
+    UE_LOG(GP_CrawlerAttackTaskLog, Display, TEXT("OnQTEFinished %s"), bSuccess ? TEXT("TRUE") : TEXT("FALSE"));
 }
 
+EBTNodeResult::Type UGP_CrawlerAttackTask::AbortTask(UBehaviorTreeComponent& OwnerComp, uint8* NodeMemory)
+{
+    AAIController* Controller = OwnerComp.GetAIOwner();
+    if (Controller)
+    {
+        if (auto* Owner = Cast<AGP_AICharacter>(Controller->GetPawn()))
+        {
+            Owner->OnFinishedAttack.RemoveAll(this);
+            Owner->OnQTEFinished.RemoveAll(this);
+            if (Controller->BrainComponent->IsPaused())
+            {
+                Controller->BrainComponent->ResumeLogic("QTE Finished");
+            }
+        }
+    }
+    return Super::AbortTask(OwnerComp, NodeMemory);
+}

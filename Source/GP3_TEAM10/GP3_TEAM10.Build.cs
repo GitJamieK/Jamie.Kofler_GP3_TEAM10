@@ -20,7 +20,15 @@ public class GP3_TEAM10 : ModuleRules
                     "GameplayTasks"
                 });
 
-		PrivateDependencyModuleNames.AddRange(new string[] {  });
+		PrivateDependencyModuleNames.AddRange(new string[] {});
+
+        if (Target.bBuildEditor)
+        {
+            PrivateDependencyModuleNames.AddRange(new string[]
+            {
+                "UnrealEd"
+            });
+        }
 
         PublicIncludePaths.AddRange(new string[]
         {

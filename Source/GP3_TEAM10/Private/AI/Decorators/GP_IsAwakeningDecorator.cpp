@@ -20,7 +20,7 @@ bool UGP_IsAwakeningDecorator::CalculateRawConditionValue(UBehaviorTreeComponent
 	const auto AIPawn = Cast<AGP_AICharacter>(Controller->GetPawn());
 	if (!AIPawn) return false;
 
-	bool bCanAwake = AIPawn->IsAwakening() && AIPawn->GetCurrentAnimState() == EAIAnimState::Sleep;
+	bool bCanAwake = AIPawn->CanAwake() && !AIPawn->IsAwakening() && AIPawn->GetCurrentAnimState() == EAIAnimState::Sleep;
 
 	//UE_LOG(GP_IsAwakeningDecoratorLog, Display, TEXT("AIPawn = %s, bCanAwake = %s"), *AIPawn->GetName(), bCanAwake ? TEXT("TRUE") : TEXT("FALSE"));
 	return bCanAwake;

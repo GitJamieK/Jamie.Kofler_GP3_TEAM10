@@ -25,9 +25,14 @@ void AGP_GameModeBase::HandleDeathState()
 	SetGameplayState(EGameplayState::DeathState);
 }
 
-void AGP_GameModeBase::HandleQTEState()
+void AGP_GameModeBase::StartQTEState()
 {
 	SetGameplayState(EGameplayState::QTEState);
+}
+
+void AGP_GameModeBase::FinishQTEState()
+{
+	SetGameplayState(EGameplayState::PlayState);
 }
 
 void AGP_GameModeBase::HandlePauseState(APlayerController* PC)

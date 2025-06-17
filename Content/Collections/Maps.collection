@@ -1,0 +1,15 @@
+FileVersion:2
+Type:Static
+Guid:C8F12EAF-44E2-7CD5-9C7E-2CB76766AF64
+ParentGuid:00000000-0000-0000-0000-000000000000
+Color:(R=0.964686,G=0.636410,B=0.216049,A=1.000000)
+
+/Game/Workspaces/GameArtists/Ilya/Map_artversion/CL_ParentLevel.CL_ParentLevel
+/Game/Workspaces/GameArtists/Ilya/Map_artversion/Environment/L_00_GroundHal.L_00_GroundHal
+/Game/Workspaces/GameArtists/Ilya/Map_artversion/Environment/L_01_Prison_Stairs.L_01_Prison_Stairs
+/Game/Workspaces/GameArtists/Ilya/Map_artversion/Environment/L_02_UpperDungeon.L_02_UpperDungeon
+/Game/Workspaces/GameArtists/Ilya/Map_artversion/Environment/L_03_DungeonHall.L_03_DungeonHall
+/Game/Workspaces/GameArtists/Ilya/Map_artversion/Environment/L_04_FlowerChamber.L_04_FlowerChamber
+/Game/Workspaces/GameArtists/Ilya/Map_artversion/Environment/L_05_Tomb_toChember.L_05_Tomb_toChember
+/Game/Workspaces/GameArtists/Ilya/Map_artversion/Light/L_00_Light.L_00_Light
+/Game/Workspaces/GameArtists/Ilya/Maps/ArtBackup/L_FlowerChamberArtversion_old.L_FlowerChamberArtversion_old

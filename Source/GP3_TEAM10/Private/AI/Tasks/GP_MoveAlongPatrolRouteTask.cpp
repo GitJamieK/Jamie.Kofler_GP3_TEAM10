@@ -36,7 +36,11 @@ EBTNodeResult::Type UGP_MoveAlongPatrolRouteTask::ExecuteTask(UBehaviorTreeCompo
 	}
 	else
 	{
-		UE_LOG(GP_MoveAlongPatrolRouteTaskLog, Warning, TEXT("PatrolRoute is null!"));
+
+#if WITH_EDITOR
+		//UE_LOG(GP_MoveAlongPatrolRouteTaskLog, Warning, TEXT("PatrolRoute is null!"));
+#endif
+
 		return EBTNodeResult::Failed;
 	}
 

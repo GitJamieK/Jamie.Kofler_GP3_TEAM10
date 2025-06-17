@@ -8,6 +8,8 @@
 #include "Interfaces/GP_QTETargetInterface.h"
 #include "GP_PlayerCharacter.generated.h"
 
+class UGP_QTEComponent;
+
 UCLASS()
 class GP3_TEAM10_API AGP_PlayerCharacter : public ACharacter, public IGenericTeamAgentInterface, public IGP_QTETargetInterface
 {
@@ -20,6 +22,9 @@ public:
 protected:
 
 	virtual void BeginPlay() override;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = "Player|Components")
+	UGP_QTEComponent* QTEComponent;
 
 	UPROPERTY(VisibleAnywhere, Category = "Generic Team Id")
 	FGenericTeamId TeamID = 3;
@@ -39,29 +44,4 @@ public:
 	virtual void StartQTE_Implementation(AActor* InstigatorActor) override;
 	//virtual FTransform GetAttackPoint_Implementation() const override;
 
-	UFUNCTION(BlueprintCallable)
-	void OnQTEButtonPressed();
-
-private:
-
-	void UpdateQTE();
-	void FailQTE();
-
-	FTimerHandle QTETickHandle;
-	FTimerHandle QTEFailHandle;
-
-	AActor* QTEInstigator;
-
-	bool bQTEActive = false;
-	float QTEProgress = 0.0f;
-	float QTEElapsedTime = 0.0f;
-
-	UPROPERTY(EditDefaultsOnly, Category = "QTE")
-	float QTEFillTime = 3.0f;
-
-	UPROPERTY(EditDefaultsOnly, Category = "QTE")
-	float QTEThreshold = 1.0f;
-
-	UPROPERTY(EditDefaultsOnly, Category = "QTE")
-	float QTEDrainPerPress = 0.2f;
 };

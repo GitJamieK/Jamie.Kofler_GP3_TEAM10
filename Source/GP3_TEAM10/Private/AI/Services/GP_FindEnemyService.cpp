@@ -17,10 +17,13 @@ void UGP_FindEnemyService::TickNode(UBehaviorTreeComponent& OwnerComp, uint8* No
 	if (Blackboard)
 	{
 		const auto Controller = OwnerComp.GetAIOwner();
-		const auto PerceptionComponent = Controller->FindComponentByClass<UGP_AIPerceptionComponent>();
-		if (PerceptionComponent)
+		if (Controller)
 		{
-			Blackboard->SetValueAsObject(TargetActorKey.SelectedKeyName, PerceptionComponent->GetTargetEnemy());
+			const auto PerceptionComponent = Controller->FindComponentByClass<UGP_AIPerceptionComponent>();
+			if (PerceptionComponent && !Blackboard->GetValueAsBool(IsFlowerTotemEventKey.SelectedKeyName))
+			{
+				Blackboard->SetValueAsObject(TargetActorKey.SelectedKeyName, PerceptionComponent->GetTargetEnemy());
+			}
 		}
 	}
 	Super::TickNode(OwnerComp, NodeMemory, DeltaSeconds);

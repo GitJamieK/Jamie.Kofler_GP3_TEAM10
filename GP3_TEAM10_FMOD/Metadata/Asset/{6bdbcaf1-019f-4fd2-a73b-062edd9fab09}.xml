@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<objects serializationModel="Studio.02.03.00">
+	<object class="EncodableAsset" id="{6bdbcaf1-019f-4fd2-a73b-062edd9fab09}">
+		<property name="color">
+			<value>Purple Light 1</value>
+		</property>
+		<property name="assetPath">
+			<value>Ambience/Saferoom/</value>
+		</property>
+		<relationship name="masterAssetFolder">
+			<destination>{1424d0e2-5ab2-4326-8cd3-d3e5779d662b}</destination>
+		</relationship>
+	</object>
+</objects>

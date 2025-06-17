@@ -5,17 +5,23 @@
 #include "Engine/DamageEvents.h"
 #include "AI/GP_AICharacter.h"
 #include "Core/GP_GameModeBase.h"
+#include "Components/GP_QTEComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
+
+DEFINE_LOG_CATEGORY_STATIC(GP_PlayerCharacterLog, All, All);
 
 AGP_PlayerCharacter::AGP_PlayerCharacter()
 {
 	PrimaryActorTick.bCanEverTick = true;
 
+	QTEComponent = CreateDefaultSubobject<UGP_QTEComponent>("QTEComponent");
 }
 
 void AGP_PlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 	
+	check(QTEComponent);
 }
 
 void AGP_PlayerCharacter::Tick(float DeltaTime)
@@ -36,56 +42,13 @@ void AGP_PlayerCharacter::StartQTE_Implementation(AActor* InstigatorActor)
 	const auto GameMode = Cast<AGP_GameModeBase>(GetWorld()->GetAuthGameMode());
 	if (GameMode)
 	{
-		GameMode->HandleQTEState();
+		GameMode->StartQTEState();
 	}
 
-	bQTEActive = true;
-	QTEProgress = 0.0f;
-	QTEElapsedTime = 0.0f;
-	QTEInstigator = InstigatorActor;
-
-	GetWorldTimerManager().SetTimer(QTETickHandle, this, &AGP_PlayerCharacter::UpdateQTE, 0.05f, true);
-	GetWorldTimerManager().SetTimer(QTEFailHandle, this, &AGP_PlayerCharacter::FailQTE, QTEFillTime, false);
-}
-
-void AGP_PlayerCharacter::OnQTEButtonPressed()
-{
-	if (!bQTEActive) return;
-
-	QTEProgress += QTEDrainPerPress;
-	QTEProgress = FMath::Clamp(QTEProgress, 0.0f, QTEThreshold);
-
-	if (QTEProgress >= QTEThreshold)
-	{
-		bQTEActive = false;
-		GetWorldTimerManager().ClearTimer(QTETickHandle);
-		GetWorldTimerManager().ClearTimer(QTEFailHandle);
-
-		if (auto* Enemy = Cast<AGP_AICharacter>(QTEInstigator))
-		{
-			Enemy->OnQTEFinished.Broadcast(true);
-		}
-	}
-}
-
-void AGP_PlayerCharacter::UpdateQTE()
-{
-	if (!bQTEActive) return;
-
-	QTEElapsedTime += 0.05f;
-	float TimeLeft = FMath::Clamp(QTEFillTime - QTEElapsedTime, 0.0f, QTEFillTime);
-
-	IGP_QTETargetInterface::Execute_OnQTEProgressUpdated(this, QTEProgress, TimeLeft);
-}
-
-void AGP_PlayerCharacter::FailQTE()
-{
-	bQTEActive = false;
-	GetWorldTimerManager().ClearTimer(QTETickHandle);
-
-	if (auto* Enemy = Cast<AGP_AICharacter>(QTEInstigator))
-	{
-		Enemy->OnQTEFinished.Broadcast(false);
-	}
+	// start QTE component
+	UE_LOG(GP_PlayerCharacterLog, Display, TEXT("%s started QTE by instigator %s"), *GetName(), *InstigatorActor->GetName());
+	QTEComponent->StartQTE(InstigatorActor);
+	GetCharacterMovement()->DisableMovement();
+	//EnableInput(GetWorld()->GetFirstPlayerController());
 }
 
